@@ -23,12 +23,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-secondary)' }}>
       {/* Sidebar */}
       <aside style={{
-        width: 220,
-        background: '#131310',
-        borderRight: '1px solid #2a2a22',
+        width: 228,
+        background: 'var(--bg)',
+        borderRight: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
@@ -37,32 +37,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         height: '100vh',
       }}>
         {/* Logo */}
-        <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid #1e1e18' }}>
+        <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid var(--border)' }}>
           <div style={{
             fontFamily: 'var(--font-display)',
-            fontSize: 18,
-            color: '#c9a84c',
-            letterSpacing: '0.08em',
+            fontSize: 16,
+            fontWeight: 600,
+            color: 'var(--accent)',
+            letterSpacing: '0.02em',
             display: 'flex',
             alignItems: 'center',
             gap: 8,
           }}>
-            <Hotel size={18} color="#c9a84c" />
-            HOTEL
+            <div style={{
+              width: 30, height: 30, borderRadius: 8,
+              background: 'var(--accent-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Hotel size={16} color="var(--accent)" />
+            </div>
+            Hotel
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 9,
-            color: '#6b6b55',
-            letterSpacing: '0.25em',
-            marginTop: 2,
+            fontSize: 10,
+            color: 'var(--text-muted)',
+            letterSpacing: '0.18em',
+            marginTop: 4,
+            textTransform: 'uppercase',
           }}>
-            MANAJEMEN KAMAR
+            Manajemen Kamar
           </div>
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: '16px 12px', flex: 1 }}>
+        <nav style={{ padding: '14px 10px', flex: 1 }}>
           {navItems.map(({ href, icon: Icon, label }) => {
             const active = pathname === href
             return (
@@ -73,12 +81,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  padding: '10px 12px',
+                  padding: '9px 12px',
                   borderRadius: 8,
                   marginBottom: 2,
-                  color: active ? '#c9a84c' : '#9a9678',
-                  background: active ? '#c9a84c12' : 'transparent',
-                  border: active ? '1px solid #c9a84c22' : '1px solid transparent',
+                  color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                  background: active ? 'var(--accent-light)' : 'transparent',
+                  border: active ? '1px solid var(--accent-mid)' : '1px solid transparent',
                   fontSize: 13,
                   fontWeight: active ? 500 : 400,
                   textDecoration: 'none',
@@ -93,19 +101,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         {/* Logout */}
-        <div style={{ padding: '12px', borderTop: '1px solid #1e1e18' }}>
+        <div style={{ padding: '10px', borderTop: '1px solid var(--border)' }}>
           <button
             onClick={handleLogout}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
-              width: '100%', padding: '10px 12px',
+              width: '100%', padding: '9px 12px',
               borderRadius: 8, border: 'none',
-              background: 'transparent', color: '#6b6b55',
+              background: 'transparent', color: 'var(--text-muted)',
               fontSize: 13, cursor: 'pointer',
-              transition: 'color 0.15s',
+              transition: 'all 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#6b6b55')}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'var(--red)'
+              e.currentTarget.style.background = 'var(--red-light)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'var(--text-muted)'
+              e.currentTarget.style.background = 'transparent'
+            }}
           >
             <LogOut size={15} />
             Keluar
@@ -114,7 +128,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, overflow: 'auto', background: '#0f0f0d' }}>
+      <main style={{ flex: 1, overflow: 'auto', background: 'var(--bg-secondary)' }}>
         {children}
       </main>
     </div>

@@ -67,10 +67,10 @@ export default function BookingPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: '#e8e4d4' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24,fontWeight: 600, color: 'var(--text-primary)' }}>
             Data Booking
           </h1>
-          <p style={{ fontSize: 13, color: '#6b6b55', marginTop: 4 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
             {bookings.length} total tamu terdaftar
           </p>
         </div>
@@ -111,7 +111,7 @@ export default function BookingPage() {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#1a1a16', border: '1px solid #2a2a22', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
             <div className="loader" />
@@ -137,67 +137,73 @@ export default function BookingPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((b, i) => {
+            {filtered.map((b, i) => {
                 const sisa = sisaHari(b.tanggal_out)
                 const expired = sisa === 0
                 return (
-                  <tr key={b.id} style={{ opacity: expired ? 0.5 : 1 }}>
-                    <td style={{ color: '#6b6b55', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                      {String(i + 1).padStart(2, '0')}
+                <tr key={b.id} style={{
+                    opacity: expired ? 0.5 : 1,
+                    background: expired ? 'var(--red-light)' : 'var(--bg)',
+                }}>
+                    <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                    {String(i + 1).padStart(2, '0')}
                     </td>
                     <td>
-                      <span style={{
+                    <span style={{
                         fontFamily: 'var(--font-mono)',
                         fontSize: 13,
-                        color: '#c9a84c',
-                      }}>
+                        color: 'var(--accent)',
+                        fontWeight: 500,
+                    }}>
                         {b.kamar.nomor_kamar}
-                      </span>
-                      <span style={{ color: '#6b6b55', fontSize: 11, marginLeft: 6 }}>
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>
                         Lt.{b.kamar.lantai}
-                      </span>
+                    </span>
                     </td>
-                    <td style={{ color: '#e8e4d4', fontWeight: 500 }}>{b.nama_tamu}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#9a9678' }}>
-                      {b.nik ? `${b.nik.slice(0, 6)}****${b.nik.slice(-4)}` : '—'}
+                    <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{b.nama_tamu}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+                    {b.nik ? `${b.nik.slice(0, 6)}****${b.nik.slice(-4)}` : '—'}
                     </td>
-                    <td style={{ color: '#9a9678' }}>{b.durasi}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                      {format(new Date(b.tanggal_in), 'dd/MM/yy', { locale: localeID })}
+                    <td style={{ color: 'var(--text-secondary)' }}>{b.durasi}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
+                    {format(new Date(b.tanggal_in), 'dd/MM/yy', { locale: localeID })}
                     </td>
                     <td style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 12,
-                      color: sisa <= 7 ? '#c9a84c' : undefined,
+                    fontFamily: 'var(--font-mono)', fontSize: 12,
+                    color: sisa <= 7 ? 'var(--amber)' : 'var(--text-secondary)',
+                    fontWeight: sisa <= 7 ? 500 : 400,
                     }}>
-                      {format(new Date(b.tanggal_out), 'dd/MM/yy', { locale: localeID })}
+                    {format(new Date(b.tanggal_out), 'dd/MM/yy', { locale: localeID })}
                     </td>
-                    <td style={{ color: '#4ade80', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                      {b.harga_total ? formatRupiah(b.harga_total) : '—'}
+                    <td style={{ color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500 }}>
+                    {b.harga_total ? formatRupiah(b.harga_total) : '—'}
                     </td>
                     <td>
-                      <span style={{
+                    <span style={{
                         fontSize: 10,
                         fontFamily: 'var(--font-mono)',
-                        color: statusColor[b.status_bayar as keyof typeof statusColor],
-                        background: `${statusColor[b.status_bayar as keyof typeof statusColor]}15`,
-                        border: `1px solid ${statusColor[b.status_bayar as keyof typeof statusColor]}30`,
+                        color: b.status_bayar === 'lunas' ? '#16a34a' : b.status_bayar === 'dp' ? '#92400e' : '#dc2626',
+                        background: b.status_bayar === 'lunas' ? 'var(--green-light)' : b.status_bayar === 'dp' ? 'var(--amber-light)' : 'var(--red-light)',
+                        border: `1px solid ${b.status_bayar === 'lunas' ? '#bbf7d0' : b.status_bayar === 'dp' ? '#fde68a' : '#fecaca'}`,
                         padding: '2px 8px',
                         borderRadius: 4,
                         textTransform: 'uppercase',
                         letterSpacing: '0.06em',
-                      }}>
+                    }}>
                         {b.status_bayar}
-                      </span>
+                    </span>
                     </td>
                     <td style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 12,
-                      color: expired ? '#f87171' : sisa <= 7 ? '#c9a84c' : '#6b6b55',
+                    fontFamily: 'var(--font-mono)', fontSize: 12,
+                    color: expired ? 'var(--red)' : sisa <= 7 ? 'var(--amber)' : 'var(--text-muted)',
+                    fontWeight: expired || sisa <= 7 ? 500 : 400,
                     }}>
-                      {expired ? 'EXPIRED' : `${sisa}hr`}
+                    {expired ? 'EXPIRED' : `${sisa}hr`}
                     </td>
-                  </tr>
+                </tr>
                 )
-              })}
+            })}
             </tbody>
           </table>
         )}

@@ -78,42 +78,66 @@ export default function DashboardPage() {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: 24,
-          fontWeight: 500,
-          color: '#e8e4d4',
-          letterSpacing: '0.02em',
-        }}>
-          Status Kamar
+            fontFamily: 'var(--font-display)',
+            fontSize: 24,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            letterSpacing: '0.01em',
+            }}>
+            Status Kamar
         </h1>
-        <p style={{ fontSize: 13, color: '#6b6b55', marginTop: 4 }}>
-          Klik kamar <span style={{ color: '#4ade80' }}>hijau</span> untuk tambah booking ·{' '}
-          Klik kamar <span style={{ color: '#f87171' }}>merah</span> untuk lihat detail tamu
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+        Klik kamar <span style={{ color: 'var(--green)', fontWeight: 500 }}>hijau</span> untuk tambah booking ·{' '}
+        Klik kamar <span style={{ color: 'var(--red)', fontWeight: 500 }}>merah</span> untuk lihat detail tamu
         </p>
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
-        {[
-          { label: 'Total Kamar', val: totalKamar, color: '#e8e4d4' },
-          { label: 'Terisi', val: terisi, color: '#f87171' },
-          { label: 'Kosong', val: kosong, color: '#4ade80' },
-        ].map(({ label, val, color }) => (
-          <div key={label} style={{
-            background: '#1a1a16',
-            border: '1px solid #2a2a22',
-            borderRadius: 10,
-            padding: '16px 20px',
-          }}>
-            <div style={{ fontSize: 12, color: '#6b6b55', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', marginBottom: 6 }}>
-              {label.toUpperCase()}
-            </div>
-            <div style={{ fontSize: 28, fontFamily: 'var(--font-display)', color }}>
-              {loading ? '—' : val}
-            </div>
-          </div>
-        ))}
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+    {[
+        { label: 'Total Kamar', val: totalKamar, color: 'var(--text-primary)', bg: 'var(--bg)' },
+        { label: 'Terisi', val: terisi, color: 'var(--red)', bg: 'var(--red-light)' },
+        { label: 'Kosong', val: kosong, color: 'var(--green)', bg: 'var(--green-light)' },
+    ].map(({ label, val, color, bg }) => (
+        <div key={label} style={{
+        background: bg,
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        padding: '16px 20px',
+        }}>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', marginBottom: 6, textTransform: 'uppercase' }}>
+            {label}
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 600, color }}>
+            {loading ? '—' : val}
+        </div>
+        </div>
+    ))}
+    </div>
+
+{/* Warning: Booking segera berakhir */}
+{segera.length > 0 && (
+  <div style={{
+    background: 'var(--amber-light)',
+    border: '1px solid #fde68a',
+    borderRadius: 8,
+    padding: '12px 16px',
+    marginBottom: 24,
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 10,
+  }}>
+    <span style={{ color: 'var(--amber)', fontSize: 14, marginTop: 1 }}>⚠</span>
+    <div>
+      <div style={{ fontSize: 12, color: '#92400e', fontFamily: 'var(--font-mono)', marginBottom: 4, letterSpacing: '0.06em' }}>
+        CHECKOUT DALAM 7 HARI
       </div>
+      <div style={{ fontSize: 13, color: '#78350f' }}>
+        {segera.map(b => `Kamar ${b.kamar.nomor_kamar} (${b.nama_tamu})`).join(' · ')}
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Warning: Booking segera berakhir */}
       {segera.length > 0 && (

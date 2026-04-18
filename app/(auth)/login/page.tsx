@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { Hotel } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -32,77 +33,78 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0f0f0d',
+      background: 'var(--bg-secondary)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px',
     }}>
-      {/* Background decoration */}
-      <div style={{
-        position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none',
-      }}>
-        <div style={{
-          position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
-          width: 600, height: 600,
-          background: 'radial-gradient(circle, #c9a84c08 0%, transparent 70%)',
-          borderRadius: '50%',
-        }} />
-      </div>
+      <div className="animate-in" style={{ width: '100%', maxWidth: 400, position: 'relative' }}>
 
-      <div className="animate-in" style={{ width: '100%', maxWidth: 380, position: 'relative' }}>
-        {/* Logo / header */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 28,
-            color: '#c9a84c',
-            letterSpacing: '0.1em',
-            marginBottom: 6,
+            width: 52, height: 52,
+            borderRadius: 14,
+            background: 'var(--accent-light)',
+            border: '1px solid var(--accent-mid)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
           }}>
-            HOTEL
+            <Hotel size={24} color="var(--accent)" />
           </div>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10,
-            letterSpacing: '0.3em',
-            color: '#6b6b55',
-            textTransform: 'uppercase',
-          }}>
-            SISTEM MANAJEMEN KAMAR
-          </div>
-          <div className="gold-line" style={{ marginTop: 20 }} />
-        </div>
-
-        {/* Form */}
-        <div style={{
-          background: '#1a1a16',
-          border: '1px solid #2a2a22',
-          borderRadius: 12,
-          padding: '32px 28px',
-        }}>
           <h1 style={{
             fontFamily: 'var(--font-display)',
-            fontSize: 18,
-            fontWeight: 500,
-            color: '#e8e4d4',
+            fontSize: 22,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            letterSpacing: '0.01em',
             marginBottom: 6,
           }}>
-            Masuk ke Sistem
+            Hotel Pembukuan
           </h1>
-          <p style={{ fontSize: 13, color: '#6b6b55', marginBottom: 24 }}>
+          <p style={{
+            fontSize: 13,
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}>
+            Sistem Manajemen Kamar
+          </p>
+        </div>
+
+        {/* Card form */}
+        <div style={{
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          padding: '32px 28px',
+          boxShadow: '0 4px 24px rgba(15,23,42,0.06)',
+        }}>
+          <h2 style={{
+            fontSize: 17,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            marginBottom: 4,
+          }}>
+            Masuk ke Sistem
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
             Hanya staff hotel yang dapat mengakses.
           </p>
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: 16 }}>
               <label style={{
-                display: 'block', fontSize: 12,
-                color: '#9a9678', marginBottom: 6,
-                fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.05em',
+                display: 'block',
+                fontSize: 12,
+                fontWeight: 500,
+                color: 'var(--text-secondary)',
+                marginBottom: 6,
+                letterSpacing: '0.02em',
               }}>
-                EMAIL
+                Email
               </label>
               <input
                 type="email"
@@ -116,12 +118,14 @@ export default function LoginPage() {
 
             <div style={{ marginBottom: 24 }}>
               <label style={{
-                display: 'block', fontSize: 12,
-                color: '#9a9678', marginBottom: 6,
-                fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.05em',
+                display: 'block',
+                fontSize: 12,
+                fontWeight: 500,
+                color: 'var(--text-secondary)',
+                marginBottom: 6,
+                letterSpacing: '0.02em',
               }}>
-                PASSWORD
+                Password
               </label>
               <input
                 type="password"
@@ -135,11 +139,11 @@ export default function LoginPage() {
 
             {error && (
               <div style={{
-                background: '#f8717115',
-                border: '1px solid #f8717130',
-                borderRadius: 6,
+                background: 'var(--red-light)',
+                border: '1px solid #fecaca',
+                borderRadius: 8,
                 padding: '10px 12px',
-                color: '#f87171',
+                color: '#dc2626',
                 fontSize: 13,
                 marginBottom: 20,
               }}>
@@ -151,19 +155,20 @@ export default function LoginPage() {
               type="submit"
               className="btn-primary"
               disabled={loading}
-              style={{ width: '100%', padding: '12px' }}
+              style={{ width: '100%', padding: '11px', fontSize: 14 }}
             >
-              {loading ? <span className="loader" /> : 'Masuk'}
+              {loading ? <span className="loader" style={{ borderTopColor: '#fff' }} /> : 'Masuk'}
             </button>
           </form>
         </div>
 
         <p style={{
-          textAlign: 'center', marginTop: 20,
-          fontSize: 12, color: '#6b6b5566',
-          fontFamily: 'var(--font-mono)',
+          textAlign: 'center',
+          marginTop: 20,
+          fontSize: 12,
+          color: 'var(--text-muted)',
         }}>
-          © HOTEL PEMBUKUAN SISTEM
+          © Hotel Pembukuan Sistem
         </p>
       </div>
     </div>

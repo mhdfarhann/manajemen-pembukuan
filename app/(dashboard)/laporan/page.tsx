@@ -86,14 +86,12 @@ export default function LaporanPage() {
     <div style={{ padding: '28px 32px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: '#e8e4d4' }}>
-            Laporan Bulanan
-          </h1>
-          <p style={{ fontSize: 13, color: '#6b6b55', marginTop: 4 }}>
-            Data booking berdasarkan bulan masuk tamu
-          </p>
-        </div>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 600, color: 'var(--text-primary)' }}>
+          Laporan Bulanan
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+          Data booking berdasarkan bulan masuk tamu
+        </p>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input
             type="month"
@@ -113,28 +111,24 @@ export default function LaporanPage() {
       </div>
 
       {/* Summary cards */}
+    {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
         {[
-          { label: 'Total Tamu', val: loading ? '—' : String(bookings.length), color: '#e8e4d4', mono: true },
-          { label: 'Total Pendapatan', val: loading ? '—' : formatRupiah(totalPendapatan), color: '#e8e4d4' },
-          { label: 'Sudah Lunas', val: loading ? '—' : formatRupiah(sudahLunas), color: '#4ade80' },
-          { label: 'Belum Lunas', val: loading ? '—' : formatRupiah(belumLunas), color: '#f87171' },
-        ].map(({ label, val, color, mono }) => (
+          { label: 'Total Tamu', val: loading ? '—' : String(bookings.length), color: 'var(--text-primary)', bg: 'var(--bg)' },
+          { label: 'Total Pendapatan', val: loading ? '—' : formatRupiah(totalPendapatan), color: 'var(--text-primary)', bg: 'var(--bg)' },
+          { label: 'Sudah Lunas', val: loading ? '—' : formatRupiah(sudahLunas), color: 'var(--green)', bg: 'var(--green-light)' },
+          { label: 'Belum Lunas', val: loading ? '—' : formatRupiah(belumLunas), color: 'var(--red)', bg: 'var(--red-light)' },
+        ].map(({ label, val, color, bg }) => (
           <div key={label} style={{
-            background: '#1a1a16',
-            border: '1px solid #2a2a22',
+            background: bg,
+            border: '1px solid var(--border)',
             borderRadius: 10,
             padding: '16px 18px',
           }}>
-            <div style={{ fontSize: 10, color: '#6b6b55', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 8 }}>
-              {label.toUpperCase()}
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 8, textTransform: 'uppercase' }}>
+              {label}
             </div>
-            <div style={{
-              fontSize: mono ? 26 : 16,
-              fontFamily: mono ? 'var(--font-display)' : 'var(--font-mono)',
-              color,
-              letterSpacing: mono ? undefined : '0.02em',
-            }}>
+            <div style={{ fontSize: 18, fontFamily: 'var(--font-mono)', fontWeight: 500, color }}>
               {val}
             </div>
           </div>
@@ -142,14 +136,15 @@ export default function LaporanPage() {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#1a1a16', border: '1px solid #2a2a22', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
         <div style={{
           padding: '14px 20px',
-          borderBottom: '1px solid #2a2a22',
+          borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', gap: 8,
+          background: 'var(--bg-secondary)',
         }}>
-          <FileSpreadsheet size={14} color="#6b6b55" />
-          <span style={{ fontSize: 12, color: '#6b6b55', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
+          <FileSpreadsheet size={14} color="var(--text-muted)" />
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }}>
             LAPORAN {format(new Date(bulan + '-01'), 'MMMM yyyy', { locale: localeID }).toUpperCase()}
             {!loading && ` — ${bookings.length} DATA`}
           </span>
