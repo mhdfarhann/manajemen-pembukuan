@@ -1,26 +1,219 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+ 
+* { box-sizing: border-box; margin: 0; padding: 0; }
+ 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #0f0f0d;
+  color: #e8e4d4;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+ 
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #1a1a16; }
+::-webkit-scrollbar-thumb { background: #2a2a22; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #c9a84c44; }
+ 
+/* Input base */
+input, select, textarea {
+  background: #1a1a16;
+  border: 1px solid #2a2a22;
+  color: #e8e4d4;
+  font-family: var(--font-body);
+  font-size: 14px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #c9a84c;
+}
+input::placeholder { color: #6b6b55; }
+ 
+select option { background: #1a1a16; }
+ 
+/* Button base */
+.btn-primary {
+  background: #c9a84c;
+  color: #0f0f0d;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-primary:hover { background: #e8c96e; }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { background: #6b6b55; cursor: not-allowed; }
+ 
+.btn-secondary {
+  background: transparent;
+  color: #e8e4d4;
+  border: 1px solid #2a2a22;
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-secondary:hover {
+  border-color: #c9a84c44;
+  background: #1a1a16;
+}
+ 
+/* Card */
+.card {
+  background: #1a1a16;
+  border: 1px solid #2a2a22;
+  border-radius: 10px;
+  padding: 20px;
+}
+ 
+/* Badge */
+.badge-kosong {
+  background: #4ade8020;
+  color: #4ade80;
+  border: 1px solid #4ade8040;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+.badge-terisi {
+  background: #f8717120;
+  color: #f87171;
+  border: 1px solid #f8717140;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+ 
+/* Table */
+.table-hotel {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table-hotel th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #2a2a22;
+  color: #6b6b55;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.table-hotel td {
+  padding: 12px;
+  border-bottom: 1px solid #1e1e18;
+}
+.table-hotel tr:hover td { background: #1e1e18; }
+.table-hotel tr:last-child td { border-bottom: none; }
+ 
+/* Kamar grid button */
+.kamar-btn {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-mono);
+  position: relative;
+  overflow: hidden;
+}
+.kamar-btn.kosong {
+  background: #4ade8010;
+  border-color: #4ade8040;
+  color: #4ade80;
+}
+.kamar-btn.kosong:hover {
+  background: #4ade8020;
+  border-color: #4ade80;
+  transform: scale(1.04);
+}
+.kamar-btn.terisi {
+  background: #f8717110;
+  border-color: #f8717130;
+  color: #f87171;
+  cursor: default;
+}
+.kamar-btn.terisi:hover {
+  background: #f8717118;
+  border-color: #f8717160;
+}
+ 
+/* Gold line decoration */
+.gold-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #c9a84c60, transparent);
+}
+ 
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-box {
+  background: #1a1a16;
+  border: 1px solid #2a2a22;
+  border-radius: 12px;
+  padding: 28px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+ 
+/* Animate in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeIn 0.25s ease; }
+ 
+/* Loader */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loader {
+  width: 18px; height: 18px;
+  border: 2px solid #2a2a22;
+  border-top-color: #c9a84c;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
 }
