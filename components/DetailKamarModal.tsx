@@ -1,26 +1,31 @@
 'use client'
 // components/DetailKamarModal.tsx
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient, type Database } from '@/lib/supabase'
-import { formatRupiah, sisaHari, formatNIKDisplay } from '@/lib/harga'
+import { formatRupiah, sisaHari } from '@/lib/harga'
 import { format } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
-import { X, Trash2 } from 'lucide-react'
+import { X, User, CreditCard, Clock, CalendarDays, Banknote, FileText, Trash2 } from 'lucide-react'
 
-type Kamar = Database['public']['Tables']['kamar']['Row']
+type Kamar   = Database['public']['Tables']['kamar']['Row']
 type Booking = Database['public']['Tables']['booking']['Row']
 
 interface Props {
-  kamar: Kamar
+  kamar:   Kamar
   onClose: () => void
 }
 
 export default function DetailKamarModal({ kamar, onClose }: Props) {
-  const supabase = createClient()
-  const [booking, setBooking] = useState<Booking | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [deleting, setDeleting] = useState(false)
+  const supabaseRef = useRef(createClient())
+  const supabase    = supabaseRef.current
+
+  const [booking,   setBooking]   = useState<Booking | null>(null)
+  const [loading,   setLoading]   = useState(true)
+  const [deleting,  setDeleting]  = useState(false)
+  const [updating,  setUpdating]  = useState(false)
+  const [confirm,   setConfirm]   = useState(false)
+  const [error,     setError]     = useState('')
 
   useEffect(() => {
     supabase
@@ -39,181 +44,238 @@ export default function DetailKamarModal({ kamar, onClose }: Props) {
 
   async function handleCheckout() {
     if (!booking) return
-    if (!confirm(`Checkout ${booking.nama_tamu} dari kamar ${kamar.nomor_kamar}?`)) return
-
     setDeleting(true)
-    await supabase.from('booking').delete().eq('id', booking.id)
-    // status kamar otomatis diupdate via trigger
+    setError('')
+
+    const today = new Date().toISOString().split('T')[0]
+
+    // Update tanggal_out jadi hari ini, lalu kamar jadi kosong
+    const { error: e1 } = await supabase
+      .from('booking')
+      .update({ tanggal_out: today })
+      .eq('id', booking.id)
+
+    if (e1) { setError('Gagal checkout: ' + e1.message); setDeleting(false); return }
+
+    const { error: e2 } = await supabase
+      .from('kamar')
+      .update({ status: 'kosong' })
+      .eq('id', kamar.id)
+
+    if (e2) { setError('Gagal update kamar: ' + e2.message); setDeleting(false); return }
+
     onClose()
   }
 
-  async function updateStatusBayar(status: 'belum' | 'dp' | 'lunas') {
+  async function handleUpdateStatus(status: 'belum' | 'dp' | 'lunas') {
     if (!booking) return
+    setUpdating(true)
     await supabase.from('booking').update({ status_bayar: status }).eq('id', booking.id)
     setBooking({ ...booking, status_bayar: status })
+    setUpdating(false)
   }
 
   const sisa = booking ? sisaHari(booking.tanggal_out) : 0
 
+  const statusOpts = [
+    { val: 'belum', label: 'Belum Bayar' },
+    { val: 'dp',    label: 'DP' },
+    { val: 'lunas', label: 'Lunas' },
+  ] as const
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box animate-in">
+      <div className="modal-box">
+
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
           <div>
             <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: 10,
-              color: '#f87171', letterSpacing: '0.15em', marginBottom: 4,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'var(--red-light)', border: '1px solid var(--red-border)',
+              borderRadius: 20, padding: '3px 10px', marginBottom: 8,
             }}>
-              KAMAR {kamar.nomor_kamar} · LANTAI {kamar.lantai}
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--red)', fontWeight: 500 }}>
+                KAMAR {kamar.nomor_kamar} · LANTAI {kamar.lantai}
+              </span>
             </div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: '#e8e4d4' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>
               Detail Tamu
             </h2>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b6b55' }}>
-            <X size={18} />
+          <button
+            onClick={onClose}
+            style={{
+              background: 'var(--bg-secondary)', border: 'none',
+              borderRadius: 8, padding: 7, cursor: 'pointer',
+              color: 'var(--text-muted)', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--border)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+          >
+            <X size={16} />
           </button>
         </div>
 
-        <div className="gold-line" style={{ marginBottom: 20 }} />
+        <div className="divider" />
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
             <div className="loader" />
           </div>
         ) : !booking ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#6b6b55' }}>
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 13 }}>
             Data booking tidak ditemukan.
           </div>
         ) : (
           <>
-            {/* Nama */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={dimLabel}>NAMA TAMU</div>
-              <div style={{ fontSize: 22, fontFamily: 'var(--font-display)', color: '#e8e4d4' }}>
-                {booking.nama_tamu}
+            {/* Info rows */}
+            {[
+              { icon: <User size={12} />,        label: 'Nama Tamu',  val: booking.nama_tamu },
+              { icon: <CreditCard size={12} />,  label: 'NIK',        val: booking.nik || '—' },
+              { icon: <Clock size={12} />,       label: 'Durasi',     val: booking.durasi },
+              {
+                icon: <CalendarDays size={12} />, label: 'Tanggal In',
+                val: format(new Date(booking.tanggal_in), 'dd MMMM yyyy', { locale: localeID }),
+              },
+              {
+                icon: <CalendarDays size={12} />, label: 'Tanggal Out',
+                val: (
+                  <span>
+                    {format(new Date(booking.tanggal_out), 'dd MMMM yyyy', { locale: localeID })}
+                    {sisa > 0 && (
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontFamily: 'var(--font-mono)',
+                        color: sisa <= 7 ? 'var(--amber)' : 'var(--text-muted)',
+                        background: sisa <= 7 ? 'var(--amber-light)' : 'var(--bg-secondary)',
+                        border: `1px solid ${sisa <= 7 ? 'var(--amber-border)' : 'var(--border)'}`,
+                        borderRadius: 4, padding: '1px 6px',
+                      }}>
+                        {sisa} hari lagi
+                      </span>
+                    )}
+                  </span>
+                ),
+              },
+              {
+                icon: <Banknote size={12} />, label: 'Harga Total',
+                val: booking.harga_total ? formatRupiah(booking.harga_total) : '—',
+              },
+              {
+                icon: <FileText size={12} />, label: 'Catatan',
+                val: booking.catatan || '—',
+              },
+            ].map(({ icon, label, val }) => (
+              <div key={label} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                padding: '9px 0', borderBottom: '1px solid var(--border)',
+              }}>
+                <span style={{ color: 'var(--text-muted)', marginTop: 1 }}>{icon}</span>
+                <span style={{
+                  fontSize: 10, color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
+                  textTransform: 'uppercase', width: 90, flexShrink: 0, marginTop: 2,
+                }}>
+                  {label}
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
+                  {val}
+                </span>
+              </div>
+            ))}
+
+            {/* Status bayar toggle */}
+            <div style={{ marginTop: 16, marginBottom: 4 }}>
+              <div style={{
+                fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8,
+              }}>
+                Status Pembayaran
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {statusOpts.map(({ val, label }) => {
+                  const active = booking.status_bayar === val
+                  const color  = val === 'lunas' ? 'var(--green)' : val === 'dp' ? 'var(--amber)' : 'var(--red)'
+                  const bg     = val === 'lunas' ? 'var(--green-light)' : val === 'dp' ? 'var(--amber-light)' : 'var(--red-light)'
+                  const border = val === 'lunas' ? 'var(--green-border)' : val === 'dp' ? 'var(--amber-border)' : 'var(--red-border)'
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      disabled={updating}
+                      onClick={() => handleUpdateStatus(val)}
+                      style={{
+                        flex: 1, padding: '8px 4px',
+                        borderRadius: 8, border: `1.5px solid ${active ? border : 'var(--border)'}`,
+                        background: active ? bg : 'var(--bg)',
+                        color: active ? color : 'var(--text-muted)',
+                        cursor: 'pointer', fontSize: 12, fontWeight: active ? 500 : 400,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            {/* NIK */}
-            {booking.nik && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={dimLabel}>NIK</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: '#c9a84c', letterSpacing: '0.1em' }}>
-                  {formatNIKDisplay(booking.nik)}
-                </div>
+            {/* Error */}
+            {error && (
+              <div style={{
+                background: 'var(--red-light)', border: '1px solid var(--red-border)',
+                borderRadius: 8, padding: '10px 14px',
+                color: 'var(--red)', fontSize: 13, marginTop: 12,
+              }}>
+                {error}
               </div>
             )}
-
-            {/* Grid info */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-              <div style={infoBox}>
-                <div style={dimLabel}>MASUK</div>
-                <div style={{ fontSize: 14, color: '#e8e4d4' }}>
-                  {format(new Date(booking.tanggal_in), 'dd MMM yyyy', { locale: localeID })}
-                </div>
-              </div>
-              <div style={infoBox}>
-                <div style={dimLabel}>KELUAR</div>
-                <div style={{ fontSize: 14, color: sisa <= 7 ? '#c9a84c' : '#e8e4d4' }}>
-                  {format(new Date(booking.tanggal_out), 'dd MMM yyyy', { locale: localeID })}
-                  {sisa <= 7 && <span style={{ fontSize: 11, marginLeft: 6, color: '#c9a84c' }}>({sisa}hr lagi)</span>}
-                </div>
-              </div>
-              <div style={infoBox}>
-                <div style={dimLabel}>DURASI</div>
-                <div style={{ fontSize: 14, color: '#e8e4d4' }}>{booking.durasi}</div>
-              </div>
-              <div style={infoBox}>
-                <div style={dimLabel}>TOTAL HARGA</div>
-                <div style={{ fontSize: 14, color: '#4ade80' }}>
-                  {booking.harga_total ? formatRupiah(booking.harga_total) : '—'}
-                </div>
-              </div>
-            </div>
-
-            {/* Status bayar */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={dimLabel}>STATUS PEMBAYARAN</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                {(['belum', 'dp', 'lunas'] as const).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => updateStatusBayar(s)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: 6,
-                      border: `1px solid`,
-                      cursor: 'pointer',
-                      fontSize: 11,
-                      fontFamily: 'var(--font-mono)',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      background: booking.status_bayar === s
-                        ? s === 'lunas' ? '#4ade8020' : s === 'dp' ? '#c9a84c20' : '#f8717120'
-                        : 'transparent',
-                      borderColor: booking.status_bayar === s
-                        ? s === 'lunas' ? '#4ade8060' : s === 'dp' ? '#c9a84c60' : '#f8717160'
-                        : '#2a2a22',
-                      color: booking.status_bayar === s
-                        ? s === 'lunas' ? '#4ade80' : s === 'dp' ? '#c9a84c' : '#f87171'
-                        : '#6b6b55',
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Catatan */}
-            {booking.catatan && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={dimLabel}>CATATAN</div>
-                <div style={{ fontSize: 13, color: '#9a9678', fontStyle: 'italic' }}>{booking.catatan}</div>
-              </div>
-            )}
-
-            <div className="gold-line" style={{ marginBottom: 20 }} />
 
             {/* Actions */}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn-secondary" onClick={onClose} style={{ flex: 1 }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onClose}
+                style={{ flex: 1 }}
+              >
                 Tutup
               </button>
-              <button
-                onClick={handleCheckout}
-                disabled={deleting}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: 6,
-                  background: '#f8717115', border: '1px solid #f8717130',
-                  color: '#f87171', cursor: 'pointer', fontSize: 13,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  transition: 'background 0.2s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#f8717125')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#f8717115')}
-              >
-                {deleting ? <span className="loader" /> : <><Trash2 size={13} /> Checkout</>}
-              </button>
+              {!confirm ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirm(true)}
+                  style={{
+                    flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    background: 'var(--red-light)', border: '1px solid var(--red-border)',
+                    borderRadius: 8, padding: '10px 16px', cursor: 'pointer',
+                    color: 'var(--red)', fontSize: 13, fontWeight: 500,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <Trash2 size={13} /> Checkout Tamu
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleCheckout}
+                  style={{
+                    flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    background: 'var(--red)', border: '1px solid var(--red)',
+                    borderRadius: 8, padding: '10px 16px', cursor: 'pointer',
+                    color: '#fff', fontSize: 13, fontWeight: 600,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {deleting ? <><span className="loader" /> Memproses...</> : '⚠️ Konfirmasi Checkout'}
+                </button>
+              )}
             </div>
           </>
         )}
       </div>
     </div>
   )
-}
-
-const dimLabel: React.CSSProperties = {
-  fontSize: 10, color: '#6b6b55',
-  fontFamily: 'var(--font-mono)',
-  letterSpacing: '0.12em',
-  marginBottom: 4,
-}
-const infoBox: React.CSSProperties = {
-  background: '#131310',
-  border: '1px solid #1e1e18',
-  borderRadius: 8,
-  padding: '12px 14px',
 }

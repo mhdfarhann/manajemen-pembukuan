@@ -1,28 +1,27 @@
 'use client'
-// app/login/page.tsx
+// app/(auth)/login/page.tsx
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Hotel } from 'lucide-react'
+import { Building2, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
+  const router   = useRouter()
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [showPw,   setShowPw]   = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-
     if (error) {
-      setError('Email atau password salah.')
+      setError('Email atau password salah. Silakan coba lagi.')
       setLoading(false)
     } else {
       router.push('/')
@@ -37,75 +36,49 @@ export default function LoginPage() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px',
+      padding: 20,
     }}>
-      <div className="animate-in" style={{ width: '100%', maxWidth: 400, position: 'relative' }}>
+      {/* Subtle pattern bg */}
+      <div style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none',
+        backgroundImage: `radial-gradient(circle at 50% 0%, rgba(184,134,11,0.06) 0%, transparent 60%)`,
+      }} />
+
+      <div style={{ width: '100%', maxWidth: 380, position: 'relative' }} className="animate-in">
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
-            width: 52, height: 52,
-            borderRadius: 14,
-            background: 'var(--accent-light)',
-            border: '1px solid var(--accent-mid)',
+            width: 52, height: 52, borderRadius: 14,
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-md)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px',
+            margin: '0 auto 14px',
           }}>
-            <Hotel size={24} color="var(--accent)" />
+            <Building2 size={24} color="var(--accent)" strokeWidth={1.5} />
           </div>
-          <h1 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 22,
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            letterSpacing: '0.01em',
-            marginBottom: 6,
-          }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>
             Hotel Pembukuan
-          </h1>
-          <p style={{
-            fontSize: 13,
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          }}>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
             Sistem Manajemen Kamar
-          </p>
+          </div>
         </div>
 
-        {/* Card form */}
-        <div style={{
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          padding: '32px 28px',
-          boxShadow: '0 4px 24px rgba(15,23,42,0.06)',
-        }}>
-          <h2 style={{
-            fontSize: 17,
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            marginBottom: 4,
-          }}>
+        {/* Card */}
+        <div className="card" style={{ padding: '28px 28px 24px' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
             Masuk ke Sistem
-          </h2>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 22 }}>
             Hanya staff hotel yang dapat mengakses.
           </p>
 
           <form onSubmit={handleLogin}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--text-secondary)',
-                marginBottom: 6,
-                letterSpacing: '0.02em',
-              }}>
-                Email
-              </label>
+            {/* Email */}
+            <div style={{ marginBottom: 14 }}>
+              <label className="field-label">Email</label>
               <input
                 type="email"
                 placeholder="staff@hotel.com"
@@ -116,36 +89,39 @@ export default function LoginPage() {
               />
             </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <label style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--text-secondary)',
-                marginBottom: 6,
-                letterSpacing: '0.02em',
-              }}>
-                Password
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
+            {/* Password */}
+            <div style={{ marginBottom: 22 }}>
+              <label className="field-label">Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  style={{ paddingRight: 42 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(v => !v)}
+                  style={{
+                    position: 'absolute', right: 10, top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', padding: 4,
+                  }}
+                >
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
 
             {error && (
               <div style={{
-                background: 'var(--red-light)',
-                border: '1px solid #fecaca',
-                borderRadius: 8,
-                padding: '10px 12px',
-                color: '#dc2626',
-                fontSize: 13,
-                marginBottom: 20,
+                background: 'var(--red-light)', border: '1px solid var(--red-border)',
+                borderRadius: 8, padding: '10px 14px',
+                color: 'var(--red)', fontSize: 13, marginBottom: 16,
               }}>
                 {error}
               </div>
@@ -155,19 +131,14 @@ export default function LoginPage() {
               type="submit"
               className="btn-primary"
               disabled={loading}
-              style={{ width: '100%', padding: '11px', fontSize: 14 }}
+              style={{ width: '100%', padding: '11px' }}
             >
-              {loading ? <span className="loader" style={{ borderTopColor: '#fff' }} /> : 'Masuk'}
+              {loading ? <><span className="loader" style={{ width: 14, height: 14 }} /> Masuk...</> : 'Masuk'}
             </button>
           </form>
         </div>
 
-        <p style={{
-          textAlign: 'center',
-          marginTop: 20,
-          fontSize: 12,
-          color: 'var(--text-muted)',
-        }}>
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-muted)' }}>
           © Hotel Pembukuan Sistem
         </p>
       </div>

@@ -1,7 +1,6 @@
 // lib/harga.ts
-// Utilitas kalkulasi harga otomatis
 
-import { addDays, addWeeks, addMonths, differenceInDays } from 'date-fns'
+import { addDays, addWeeks, addMonths } from 'date-fns'
 
 export type Durasi = '1 hari' | '1 minggu' | '2 minggu' | '1 bulan' | '2 bulan' | '3 bulan'
 
@@ -14,20 +13,18 @@ export const DURASI_OPTIONS: Durasi[] = [
   '3 bulan',
 ]
 
-// Kalkulasi tanggal_out dari tanggal_in + durasi
 export function hitungTanggalOut(tanggalIn: Date, durasi: Durasi): Date {
   switch (durasi) {
-    case '1 hari':    return addDays(tanggalIn, 1)
-    case '1 minggu':  return addWeeks(tanggalIn, 1)
-    case '2 minggu':  return addWeeks(tanggalIn, 2)
-    case '1 bulan':   return addMonths(tanggalIn, 1)
-    case '2 bulan':   return addMonths(tanggalIn, 2)
-    case '3 bulan':   return addMonths(tanggalIn, 3)
-    default:          return addMonths(tanggalIn, 1)
+    case '1 hari':   return addDays(tanggalIn, 1)
+    case '1 minggu': return addWeeks(tanggalIn, 1)
+    case '2 minggu': return addWeeks(tanggalIn, 2)
+    case '1 bulan':  return addMonths(tanggalIn, 1)
+    case '2 bulan':  return addMonths(tanggalIn, 2)
+    case '3 bulan':  return addMonths(tanggalIn, 3)
+    default:         return addMonths(tanggalIn, 1)
   }
 }
 
-// Kalkulasi harga total dari harga tabel + durasi
 export function hitungHargaTotal(
   hargaHarian: number | null,
   hargaMingguan: number | null,
@@ -45,7 +42,6 @@ export function hitungHargaTotal(
   }
 }
 
-// Format rupiah
 export function formatRupiah(nilai: number): string {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -55,23 +51,25 @@ export function formatRupiah(nilai: number): string {
   }).format(nilai)
 }
 
-// Validasi NIK (16 digit angka)
 export function validasiNIK(nik: string): boolean {
   return /^\d{16}$/.test(nik)
 }
 
-// Format NIK dengan spasi setiap 4 digit untuk display (tidak untuk simpan)
 export function formatNIKDisplay(nik: string): string {
   return nik.replace(/(\d{4})(?=\d)/g, '$1 ').trim()
 }
 
-// Cek apakah booking sudah expired (tanggal_out sudah lewat)
-export function isExpired(tanggalOut: string): boolean {
-  return new Date(tanggalOut) < new Date()
+// BUG FIX: Bandingkan date-only (strip jam) supaya booking "1 hari"
+// tidak langsung jadi expired karena selisih jam
+export function sisaHari(tanggalOut: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const out = new Date(tanggalOut)
+  out.setHours(0, 0, 0, 0)
+  const ms = out.getTime() - today.getTime()
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)))
 }
 
-// Hitung sisa hari
-export function sisaHari(tanggalOut: string): number {
-  const selisih = differenceInDays(new Date(tanggalOut), new Date())
-  return Math.max(0, selisih)
+export function isExpired(tanggalOut: string): boolean {
+  return sisaHari(tanggalOut) === 0
 }

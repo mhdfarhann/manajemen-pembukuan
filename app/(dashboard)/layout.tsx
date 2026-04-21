@@ -3,18 +3,21 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Hotel, LayoutGrid, FileText, LogOut, BookOpen } from 'lucide-react'
+import { Building2, LayoutGrid, FileText, LogOut, BookOpen, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import GlobalSearch from '@/components/GlobalSearch'
+import { useNotifikasi } from '@/hooks/useNotifikasi'
 
 const navItems = [
-  { href: '/', icon: LayoutGrid, label: 'Dashboard Kamar' },
-  { href: '/booking', icon: BookOpen, label: 'Data Booking' },
-  { href: '/laporan', icon: FileText, label: 'Laporan' },
+  { href: '/',        icon: LayoutGrid, label: 'Dashboard Kamar', badge: 'hampirCheckout' as const },
+  { href: '/booking', icon: BookOpen,   label: 'Data Booking',    badge: 'totalBelumBayar' as const },
+  { href: '/laporan', icon: FileText,   label: 'Laporan',         badge: null },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
+  const router   = useRouter()
   const pathname = usePathname()
+  const notif    = useNotifikasi()
 
   async function handleLogout() {
     const supabase = createClient()
@@ -24,9 +27,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-secondary)' }}>
-      {/* Sidebar */}
+
+      {/* ── Sidebar ─────────────────────────────────────── */}
       <aside style={{
-        width: 228,
+        width: 230,
         background: 'var(--bg)',
         borderRight: '1px solid var(--border)',
         display: 'flex',
@@ -35,44 +39,70 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         position: 'sticky',
         top: 0,
         height: '100vh',
+        boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
       }}>
+
         {/* Logo */}
-        <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 16,
-            fontWeight: 600,
-            color: 'var(--accent)',
-            letterSpacing: '0.02em',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}>
+        <div style={{ padding: '20px 18px 16px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 30, height: 30, borderRadius: 8,
+              width: 34, height: 34, borderRadius: 10,
               background: 'var(--accent-light)',
+              border: '1px solid var(--accent-mid)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Hotel size={16} color="var(--accent)" />
+              <Building2 size={17} color="var(--accent)" strokeWidth={1.8} />
             </div>
-            Hotel
-          </div>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10,
-            color: 'var(--text-muted)',
-            letterSpacing: '0.18em',
-            marginTop: 4,
-            textTransform: 'uppercase',
-          }}>
-            Manajemen Kamar
+            <div>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 14, fontWeight: 600,
+                color: 'var(--text-primary)',
+                lineHeight: 1.2,
+              }}>
+                Hotel
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9, color: 'var(--text-muted)',
+                letterSpacing: '0.15em', textTransform: 'uppercase',
+              }}>
+                Manajemen Kamar
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: '14px 10px', flex: 1 }}>
-          {navItems.map(({ href, icon: Icon, label }) => {
-            const active = pathname === href
+        <nav style={{ padding: '12px 10px', flex: 1 }}>
+          <div style={{
+            fontSize: 9, fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)', letterSpacing: '0.15em',
+            textTransform: 'uppercase', padding: '0 10px',
+            marginBottom: 6,
+          }}>
+            Menu
+          </div>
+
+          {/* ── GlobalSearch — tepat di atas navItems ── */}
+          <div style={{ marginBottom: 8, padding: '0 2px' }}>
+            <GlobalSearch />
+          </div>
+
+          {navItems.map(({ href, icon: Icon, label, badge }) => {
+            const isActive = pathname === href ||
+              (href !== '/' && pathname.startsWith(href))
+
+            // Hitung nilai badge
+            const badgeCount = badge === 'hampirCheckout'
+              ? notif.hampirCheckout
+              : badge === 'totalBelumBayar'
+              ? notif.totalBelumBayar
+              : 0
+
+            // Warna badge: kuning untuk hampirCheckout, merah untuk totalBelumBayar
+            const badgeBg = badge === 'hampirCheckout' ? 'var(--amber)' : 'var(--red)'
+
             return (
               <Link
                 key={href}
@@ -80,21 +110,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 10,
+                  gap: 9,
                   padding: '9px 12px',
-                  borderRadius: 8,
+                  borderRadius: 9,
                   marginBottom: 2,
-                  color: active ? 'var(--accent)' : 'var(--text-secondary)',
-                  background: active ? 'var(--accent-light)' : 'transparent',
-                  border: active ? '1px solid var(--accent-mid)' : '1px solid transparent',
+                  color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                  background: isActive ? 'var(--accent-light)' : 'transparent',
+                  border: `1px solid ${isActive ? 'var(--accent-mid)' : 'transparent'}`,
                   fontSize: 13,
-                  fontWeight: active ? 500 : 400,
+                  fontWeight: isActive ? 500 : 400,
                   textDecoration: 'none',
                   transition: 'all 0.15s',
                 }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'var(--bg-hover)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-secondary)'
+                  }
+                }}
               >
-                <Icon size={15} />
-                {label}
+                <Icon size={15} strokeWidth={isActive ? 2 : 1.7} />
+                <span style={{ flex: 1 }}>{label}</span>
+
+                {/* Badge notifikasi */}
+                {badge && badgeCount > 0 && (
+                  <span style={{
+                    background: badgeBg,
+                    color: '#fff',
+                    borderRadius: '50%',
+                    width: 16, height: 16,
+                    fontSize: 9, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'var(--font-mono)',
+                    flexShrink: 0,
+                  }}>
+                    {badge === 'totalBelumBayar' && badgeCount > 9 ? '9+' : badgeCount}
+                  </span>
+                )}
+
+                {isActive && !badgeCount && (
+                  <ChevronRight size={13} style={{ opacity: 0.5 }} />
+                )}
               </Link>
             )
           })}
@@ -105,9 +167,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={handleLogout}
             style={{
-              display: 'flex', alignItems: 'center', gap: 10,
+              display: 'flex', alignItems: 'center', gap: 9,
               width: '100%', padding: '9px 12px',
-              borderRadius: 8, border: 'none',
+              borderRadius: 9, border: 'none',
               background: 'transparent', color: 'var(--text-muted)',
               fontSize: 13, cursor: 'pointer',
               transition: 'all 0.15s',
@@ -121,14 +183,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               e.currentTarget.style.background = 'transparent'
             }}
           >
-            <LogOut size={15} />
+            <LogOut size={15} strokeWidth={1.7} />
             Keluar
           </button>
         </div>
       </aside>
 
-      {/* Main */}
-      <main style={{ flex: 1, overflow: 'auto', background: 'var(--bg-secondary)' }}>
+      {/* ── Main ──────────────────────────────────────────── */}
+      <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
         {children}
       </main>
     </div>

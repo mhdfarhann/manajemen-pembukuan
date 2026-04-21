@@ -1,7 +1,7 @@
 'use client'
 // components/BookingModal.tsx
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient, type Database } from '@/lib/supabase'
 import {
   DURASI_OPTIONS, hitungTanggalOut, hitungHargaTotal,
@@ -9,41 +9,41 @@ import {
 } from '@/lib/harga'
 import { format } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
-import { X } from 'lucide-react'
+import { X, CalendarDays, Banknote, User, CreditCard, Clock } from 'lucide-react'
 
-type Kamar = Database['public']['Tables']['kamar']['Row']
+type Kamar   = Database['public']['Tables']['kamar']['Row']
 type HargaRow = Database['public']['Tables']['harga']['Row']
-type BookingInsert = Database['public']['Tables']['booking']['Insert']
 
 interface Props {
-  kamar: Kamar
+  kamar:   Kamar
   onClose: () => void
 }
 
 export default function BookingModal({ kamar, onClose }: Props) {
-  const supabase = createClient()
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const supabaseRef = useRef(createClient())
+  const supabase    = supabaseRef.current
+
+  const [saving,    setSaving]    = useState(false)
+  const [error,     setError]     = useState('')
   const [hargaData, setHargaData] = useState<HargaRow | null>(null)
 
   const [form, setForm] = useState({
-    nama_tamu: '',
-    nik: '',
-    durasi: '1 bulan' as Durasi,
-    tanggal_in: format(new Date(), 'yyyy-MM-dd'),
-    catatan: '',
+    nama_tamu:   '',
+    nik:         '',
+    durasi:      '1 bulan' as Durasi,
+    tanggal_in:  format(new Date(), 'yyyy-MM-dd'),
+    catatan:     '',
     status_bayar: 'belum' as 'belum' | 'dp' | 'lunas',
   })
 
-  const tanggalOut = hitungTanggalOut(new Date(form.tanggal_in), form.durasi)
+  const tanggalOut = hitungTanggalOut(new Date(form.tanggal_in + 'T00:00:00'), form.durasi)
   const hargaTotal = hargaData
     ? hitungHargaTotal(hargaData.harga_harian, hargaData.harga_mingguan, hargaData.harga_bulanan, form.durasi)
     : null
 
   useEffect(() => {
     supabase
-      .from('harga')
-      .select('*')
+      .from('harga').select('*')
       .eq('lantai', kamar.lantai)
       .single()
       .then(({ data }) => { if (data) setHargaData(data) })
@@ -52,76 +52,81 @@ export default function BookingModal({ kamar, onClose }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-
     if (form.nik && !validasiNIK(form.nik)) {
-      setError('NIK harus 16 digit angka.')
+      setError('NIK harus tepat 16 digit angka.')
       return
     }
-
     setSaving(true)
-
-    const payload: BookingInsert = {
-      kamar_id: kamar.id,
-      nama_tamu: form.nama_tamu.toUpperCase(),
-      nik: form.nik || null,
-      durasi: form.durasi as string,
-      tanggal_in: form.tanggal_in,
-      tanggal_out: format(tanggalOut, 'yyyy-MM-dd'),
-      harga_total: hargaTotal,
+    const { error: err } = await supabase.from('booking').insert({
+      kamar_id:     kamar.id,
+      nama_tamu:    form.nama_tamu.toUpperCase(),
+      nik:          form.nik || null,
+      durasi:       form.durasi,
+      tanggal_in:   form.tanggal_in,
+      tanggal_out:  format(tanggalOut, 'yyyy-MM-dd'),
+      harga_total:  hargaTotal,
       status_bayar: form.status_bayar,
-      catatan: form.catatan || null,
-    }
-
-    const { error: err } = await (supabase as any)
-      .from('booking')
-      .insert(payload)
-
-    if (err) {
-      setError('Gagal menyimpan. Coba lagi.')
-      setSaving(false)
-    } else {
-      onClose()
-    }
+      catatan:      form.catatan || null,
+    })
+    if (err) { setError('Gagal menyimpan. ' + err.message); setSaving(false) }
+    else      { onClose() }
   }
 
   const nikValid = form.nik ? validasiNIK(form.nik) : null
 
+  const statusOpts = [
+    { val: 'belum', label: 'Belum Bayar' },
+    { val: 'dp',    label: 'DP' },
+    { val: 'lunas', label: 'Lunas' },
+  ] as const
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box animate-in">
+      <div className="modal-box">
+
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
           <div>
             <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              color: '#4ade80',
-              letterSpacing: '0.15em',
-              marginBottom: 4,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'var(--green-light)', border: '1px solid var(--green-border)',
+              borderRadius: 20, padding: '3px 10px', marginBottom: 8,
             }}>
-              KAMAR {kamar.nomor_kamar} · LANTAI {kamar.lantai}
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--green)', fontWeight: 500 }}>
+                KAMAR {kamar.nomor_kamar} · LANTAI {kamar.lantai}
+              </span>
             </div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: '#e8e4d4' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>
               Tambah Booking
             </h2>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b6b55', padding: 4 }}
+            style={{
+              background: 'var(--bg-secondary)', border: 'none',
+              borderRadius: 8, padding: 7, cursor: 'pointer',
+              color: 'var(--text-muted)', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--border)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <div className="gold-line" style={{ marginBottom: 24 }} />
+        <div className="divider" />
 
         <form onSubmit={handleSubmit}>
-          {/* Nama tamu */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>NAMA TAMU *</label>
+          {/* Nama */}
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">
+              <User size={10} style={{ display: 'inline', marginRight: 4 }} />
+              Nama Tamu *
+            </label>
             <input
               type="text"
-              placeholder="NAMA LENGKAP"
+              placeholder="Masukkan nama lengkap"
               value={form.nama_tamu}
               onChange={e => setForm({ ...form, nama_tamu: e.target.value.toUpperCase() })}
               required
@@ -130,10 +135,13 @@ export default function BookingModal({ kamar, onClose }: Props) {
           </div>
 
           {/* NIK */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>
-              NIK (KTP)
-              <span style={{ color: '#6b6b55', marginLeft: 6, fontWeight: 400 }}>— opsional</span>
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">
+              <CreditCard size={10} style={{ display: 'inline', marginRight: 4 }} />
+              NIK KTP
+              <span style={{ color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400, textTransform: 'none' }}>
+                (opsional)
+              </span>
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -144,100 +152,128 @@ export default function BookingModal({ kamar, onClose }: Props) {
                 maxLength={16}
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.08em',
                   borderColor: form.nik
-                    ? nikValid ? '#4ade8060' : '#f8717160'
+                    ? nikValid ? 'var(--green)' : 'var(--red)'
                     : undefined,
+                  paddingRight: form.nik ? 72 : 12,
                 }}
               />
               {form.nik && (
                 <div style={{
-                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                  fontSize: 11, fontFamily: 'var(--font-mono)',
-                  color: nikValid ? '#4ade80' : '#f87171',
+                  position: 'absolute', right: 10, top: '50%',
+                  transform: 'translateY(-50%)',
+                  display: 'flex', alignItems: 'center', gap: 4,
                 }}>
-                  {form.nik.length}/16
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10,
+                    color: nikValid ? 'var(--green)' : 'var(--red)',
+                  }}>
+                    {form.nik.length}/16
+                  </span>
+                  <span style={{ fontSize: 14 }}>{nikValid ? '✓' : ''}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Durasi */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>DURASI *</label>
-            <select
-              value={form.durasi}
-              onChange={e => setForm({ ...form, durasi: e.target.value as Durasi })}
-            >
-              {DURASI_OPTIONS.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Tanggal IN */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>TANGGAL MASUK *</label>
-            <input
-              type="date"
-              value={form.tanggal_in}
-              onChange={e => setForm({ ...form, tanggal_in: e.target.value })}
-              required
-            />
-          </div>
-
-          {/* Tanggal OUT — otomatis */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>TANGGAL KELUAR (OTOMATIS)</label>
-            <div style={{
-              background: '#131310',
-              border: '1px solid #2a2a22',
-              borderRadius: 6,
-              padding: '10px 12px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 13,
-              color: '#c9a84c',
-            }}>
-              {format(tanggalOut, 'dd MMMM yyyy', { locale: localeID })}
+          {/* Durasi + Tanggal IN — 2 kolom */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label className="field-label">
+                <Clock size={10} style={{ display: 'inline', marginRight: 4 }} />
+                Durasi *
+              </label>
+              <select
+                value={form.durasi}
+                onChange={e => setForm({ ...form, durasi: e.target.value as Durasi })}
+              >
+                {DURASI_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">
+                <CalendarDays size={10} style={{ display: 'inline', marginRight: 4 }} />
+                Tanggal Masuk *
+              </label>
+              <input
+                type="date"
+                value={form.tanggal_in}
+                onChange={e => setForm({ ...form, tanggal_in: e.target.value })}
+                required
+              />
             </div>
           </div>
 
-          {/* Harga — otomatis */}
-          {hargaTotal && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>HARGA TOTAL (OTOMATIS)</label>
-              <div style={{
-                background: '#131310',
-                border: '1px solid #4ade8030',
-                borderRadius: 6,
-                padding: '10px 12px',
-                fontFamily: 'var(--font-display)',
-                fontSize: 18,
-                color: '#4ade80',
-              }}>
-                {formatRupiah(hargaTotal)}
+          {/* Info otomatis — tanggal out + harga */}
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '14px 16px',
+            marginBottom: 14,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 16,
+          }}>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, letterSpacing: '0.06em' }}>
+                TANGGAL KELUAR
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--accent)' }}>
+                {format(tanggalOut, 'dd MMM yyyy', { locale: localeID })}
               </div>
             </div>
-          )}
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, letterSpacing: '0.06em' }}>
+                HARGA TOTAL
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--green)' }}>
+                {hargaTotal ? formatRupiah(hargaTotal) : (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Belum ada data harga</span>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Status bayar */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>STATUS BAYAR</label>
-            <select
-              value={form.status_bayar}
-              onChange={e => setForm({ ...form, status_bayar: e.target.value as typeof form.status_bayar })}
-            >
-              <option value="belum">Belum Bayar</option>
-              <option value="dp">DP</option>
-              <option value="lunas">Lunas</option>
-            </select>
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">
+              <Banknote size={10} style={{ display: 'inline', marginRight: 4 }} />
+              Status Pembayaran
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {statusOpts.map(({ val, label }) => {
+                const active = form.status_bayar === val
+                const color  = val === 'lunas' ? 'var(--green)' : val === 'dp' ? 'var(--amber)' : 'var(--red)'
+                const bg     = val === 'lunas' ? 'var(--green-light)' : val === 'dp' ? 'var(--amber-light)' : 'var(--red-light)'
+                const border = val === 'lunas' ? 'var(--green-border)' : val === 'dp' ? 'var(--amber-border)' : 'var(--red-border)'
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setForm({ ...form, status_bayar: val })}
+                    style={{
+                      flex: 1, padding: '8px 4px',
+                      borderRadius: 8, border: `1.5px solid ${active ? border : 'var(--border)'}`,
+                      background: active ? bg : 'var(--bg)',
+                      color: active ? color : 'var(--text-muted)',
+                      cursor: 'pointer', fontSize: 12, fontWeight: active ? 500 : 400,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Catatan */}
-          <div style={{ marginBottom: 24 }}>
-            <label style={labelStyle}>CATATAN</label>
+          <div style={{ marginBottom: 20 }}>
+            <label className="field-label">Catatan</label>
             <textarea
-              placeholder="Catatan tambahan..."
+              placeholder="Catatan tambahan (opsional)"
               value={form.catatan}
               onChange={e => setForm({ ...form, catatan: e.target.value })}
               rows={2}
@@ -245,45 +281,28 @@ export default function BookingModal({ kamar, onClose }: Props) {
             />
           </div>
 
+          {/* Error */}
           {error && (
             <div style={{
-              background: '#f8717115',
-              border: '1px solid #f8717130',
-              borderRadius: 6,
-              padding: '10px 12px',
-              color: '#f87171',
-              fontSize: 13,
-              marginBottom: 16,
+              background: 'var(--red-light)', border: '1px solid var(--red-border)',
+              borderRadius: 8, padding: '10px 14px',
+              color: 'var(--red)', fontSize: 13, marginBottom: 16,
             }}>
               {error}
             </div>
           )}
 
+          {/* Actions */}
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" className="btn-secondary" onClick={onClose} style={{ flex: 1 }}>
               Batal
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={saving}
-              style={{ flex: 2 }}
-            >
-              {saving ? <span className="loader" /> : 'Simpan Booking'}
+            <button type="submit" className="btn-primary" disabled={saving} style={{ flex: 2 }}>
+              {saving ? <><span className="loader" /> Menyimpan...</> : 'Simpan Booking'}
             </button>
           </div>
         </form>
       </div>
     </div>
   )
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 11,
-  color: '#9a9678',
-  marginBottom: 6,
-  fontFamily: 'var(--font-mono)',
-  letterSpacing: '0.08em',
-  fontWeight: 500,
 }
