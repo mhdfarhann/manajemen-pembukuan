@@ -2,7 +2,7 @@
 // app/(dashboard)/booking/[id]/page.tsx
 // Halaman edit detail satu booking
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient, type Database } from '@/lib/supabase'
 import {
@@ -22,24 +22,25 @@ type HargaRow = Database['public']['Tables']['harga']['Row']
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase    = supabaseRef.current
 
-  const [booking, setBooking] = useState<Booking | null>(null)
+  const [booking,   setBooking]   = useState<Booking | null>(null)
   const [hargaData, setHargaData] = useState<HargaRow | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [loading,   setLoading]   = useState(true)
+  const [saving,    setSaving]    = useState(false)
+  const [deleting,  setDeleting]  = useState(false)
+  const [error,     setError]     = useState('')
+  const [success,   setSuccess]   = useState('')
 
   // Form state
   const [form, setForm] = useState({
-    nama_tamu: '',
-    nik: '',
-    durasi: '1 bulan' as Durasi,
-    tanggal_in: '',
+    nama_tamu:   '',
+    nik:         '',
+    durasi:      '1 bulan' as Durasi,
+    tanggal_in:  '',
     status_bayar: 'belum' as 'belum' | 'dp' | 'lunas',
-    catatan: '',
+    catatan:     '',
   })
 
   useEffect(() => {
@@ -54,15 +55,14 @@ export default function BookingDetailPage() {
         const b = data as Booking
         setBooking(b)
         setForm({
-          nama_tamu: b.nama_tamu,
-          nik: b.nik || '',
-          durasi: b.durasi as Durasi,
-          tanggal_in: b.tanggal_in,
+          nama_tamu:   b.nama_tamu,
+          nik:         b.nik || '',
+          durasi:      b.durasi as Durasi,
+          tanggal_in:  b.tanggal_in,
           status_bayar: b.status_bayar as 'belum' | 'dp' | 'lunas',
-          catatan: b.catatan || '',
+          catatan:     b.catatan || '',
         })
 
-        // Fetch harga untuk lantai ini
         const { data: harga } = await supabase
           .from('harga')
           .select('*')
@@ -97,14 +97,14 @@ export default function BookingDetailPage() {
     const { error: err } = await supabase
       .from('booking')
       .update({
-        nama_tamu: form.nama_tamu.toUpperCase(),
-        nik: form.nik || null,
-        durasi: form.durasi,
-        tanggal_in: form.tanggal_in,
+        nama_tamu:   form.nama_tamu.toUpperCase(),
+        nik:         form.nik || null,
+        durasi:      form.durasi,
+        tanggal_in:  form.tanggal_in,
         tanggal_out: tanggalOut ? format(tanggalOut, 'yyyy-MM-dd') : booking!.tanggal_out,
         harga_total: hargaTotal,
         status_bayar: form.status_bayar,
-        catatan: form.catatan || null,
+        catatan:     form.catatan || null,
       })
       .eq('id', id)
 
@@ -125,61 +125,80 @@ export default function BookingDetailPage() {
     router.push('/booking')
   }
 
+  // ── Loading ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <div className="loader" style={{ width: 28, height: 28 }} />
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60, gap: 10 }}>
+        <div className="loader" />
+        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Memuat data...</span>
       </div>
     )
   }
 
+  // ── Not found ────────────────────────────────────────────────────────
   if (!booking) {
     return (
-      <div style={{ padding: '28px 32px', textAlign: 'center', color: '#6b6b55' }}>
-        Booking tidak ditemukan.{' '}
-        <Link href="/booking" style={{ color: '#c9a84c' }}>Kembali</Link>
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 12 }}>
+          Booking tidak ditemukan.
+        </div>
+        <Link href="/booking" style={{ color: 'var(--accent)', fontSize: 13 }}>
+          Kembali ke Data Booking
+        </Link>
       </div>
     )
   }
 
-  const sisa = sisaHari(booking.tanggal_out)
+  const sisa    = sisaHari(booking.tanggal_out)
+  const expired = sisa === 0
+  const warning = !expired && sisa <= 7
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 700 }}>
-      {/* Back */}
+
+      {/* ── Back ────────────────────────────────────────── */}
       <Link
         href="/booking"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          color: '#6b6b55', fontSize: 13, textDecoration: 'none',
+          color: 'var(--text-muted)', fontSize: 13, textDecoration: 'none',
           marginBottom: 24, transition: 'color 0.15s',
         }}
-        onMouseEnter={e => (e.currentTarget.style.color = '#e8e4d4')}
-        onMouseLeave={e => (e.currentTarget.style.color = '#6b6b55')}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
       >
         <ArrowLeft size={14} /> Kembali ke Data Booking
       </Link>
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: 10,
-          color: '#f87171', letterSpacing: '0.15em', marginBottom: 6,
+          color: 'var(--red)', letterSpacing: '0.15em', marginBottom: 6,
         }}>
           KAMAR {booking.kamar.nomor_kamar} · LANTAI {booking.kamar.lantai}
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: '#e8e4d4' }}>
+        <h1 style={{
+          fontFamily: 'var(--font-display)', fontSize: 22,
+          fontWeight: 600, color: 'var(--text-primary)',
+        }}>
           {booking.nama_tamu}
         </h1>
         <div style={{ display: 'flex', gap: 12, marginTop: 8, alignItems: 'center' }}>
-          <span style={{
-            fontSize: 11, fontFamily: 'var(--font-mono)',
-            color: sisa <= 7 ? '#c9a84c' : '#6b6b55',
-          }}>
-            {sisa <= 0 ? 'SUDAH EXPIRED' : `SISA ${sisa} HARI`}
-          </span>
-          <span style={{ color: '#2a2a22' }}>·</span>
-          <span style={{ fontSize: 11, color: '#6b6b55', fontFamily: 'var(--font-mono)' }}>
+          {expired ? (
+            <span className="badge badge-terisi">Expired</span>
+          ) : (
+            <span style={{
+              fontSize: 11, fontFamily: 'var(--font-mono)',
+              color: warning ? 'var(--amber)' : 'var(--text-muted)',
+              fontWeight: warning ? 600 : 400,
+            }}>
+              SISA {sisa} HARI
+            </span>
+          )}
+          <span style={{ color: 'var(--border)' }}>·</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
             CHECK-IN {format(new Date(booking.tanggal_in), 'dd MMM yyyy', { locale: localeID }).toUpperCase()}
           </span>
         </div>
@@ -187,8 +206,10 @@ export default function BookingDetailPage() {
 
       <div className="gold-line" style={{ marginBottom: 28 }} />
 
+      {/* ── Form ────────────────────────────────────────── */}
       <form onSubmit={handleSave}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
           {/* Nama */}
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>NAMA TAMU *</label>
@@ -204,7 +225,7 @@ export default function BookingDetailPage() {
           {/* NIK */}
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>
-              NIK <span style={{ color: '#6b6b55', fontWeight: 400 }}>— opsional</span>
+              NIK <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>— opsional</span>
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -216,7 +237,7 @@ export default function BookingDetailPage() {
                 style={{
                   fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
                   borderColor: form.nik
-                    ? validasiNIK(form.nik) ? '#4ade8060' : '#f8717160'
+                    ? validasiNIK(form.nik) ? 'var(--green)' : 'var(--red)'
                     : undefined,
                 }}
               />
@@ -224,7 +245,7 @@ export default function BookingDetailPage() {
                 <div style={{
                   position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
                   fontSize: 11, fontFamily: 'var(--font-mono)',
-                  color: validasiNIK(form.nik) ? '#4ade80' : '#f87171',
+                  color: validasiNIK(form.nik) ? 'var(--green)' : 'var(--red)',
                 }}>
                   {form.nik.length}/16
                 </div>
@@ -258,8 +279,9 @@ export default function BookingDetailPage() {
           <div>
             <label style={labelStyle}>TANGGAL KELUAR (OTOMATIS)</label>
             <div style={{
-              background: '#131310', border: '1px solid #2a2a22', borderRadius: 6,
-              padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 13, color: '#c9a84c',
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
+              padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 13,
+              color: 'var(--amber)',
             }}>
               {tanggalOut
                 ? format(tanggalOut, 'dd MMMM yyyy', { locale: localeID })
@@ -271,8 +293,9 @@ export default function BookingDetailPage() {
           <div>
             <label style={labelStyle}>HARGA TOTAL (OTOMATIS)</label>
             <div style={{
-              background: '#131310', border: '1px solid #4ade8030', borderRadius: 6,
-              padding: '10px 12px', fontFamily: 'var(--font-display)', fontSize: 16, color: '#4ade80',
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
+              padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 13,
+              color: 'var(--green)', fontWeight: 500,
             }}>
               {hargaTotal ? formatRupiah(hargaTotal) : '—'}
             </div>
@@ -288,19 +311,14 @@ export default function BookingDetailPage() {
                   type="button"
                   onClick={() => setForm({ ...form, status_bayar: s })}
                   style={{
-                    padding: '8px 20px', borderRadius: 6, border: '1px solid',
-                    cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-mono)',
+                    padding: '8px 20px', borderRadius: 6, cursor: 'pointer',
+                    fontSize: 12, fontFamily: 'var(--font-mono)',
                     letterSpacing: '0.08em', textTransform: 'uppercase',
-                    background: form.status_bayar === s
-                      ? s === 'lunas' ? '#4ade8020' : s === 'dp' ? '#c9a84c20' : '#f8717120'
-                      : 'transparent',
-                    borderColor: form.status_bayar === s
-                      ? s === 'lunas' ? '#4ade8060' : s === 'dp' ? '#c9a84c60' : '#f8717160'
-                      : '#2a2a22',
-                    color: form.status_bayar === s
-                      ? s === 'lunas' ? '#4ade80' : s === 'dp' ? '#c9a84c' : '#f87171'
-                      : '#6b6b55',
+                    transition: 'all 0.15s',
+                    background: form.status_bayar === s ? undefined : 'transparent',
+                    border: '1px solid var(--border)',
                   }}
+                  className={form.status_bayar === s ? `badge badge-${s}` : undefined}
                 >
                   {s}
                 </button>
@@ -321,33 +339,47 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
-        {/* Feedback */}
+        {/* ── Feedback ──────────────────────────────────── */}
         {error && (
           <div style={{
-            background: '#f8717115', border: '1px solid #f8717130',
-            borderRadius: 6, padding: '10px 14px', color: '#f87171', fontSize: 13, marginBottom: 16,
-          }}>{error}</div>
+            background: 'color-mix(in srgb, var(--red) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--red) 30%, transparent)',
+            borderRadius: 6, padding: '10px 14px',
+            color: 'var(--red)', fontSize: 13, marginBottom: 16,
+          }}>
+            {error}
+          </div>
         )}
         {success && (
           <div style={{
-            background: '#4ade8015', border: '1px solid #4ade8030',
-            borderRadius: 6, padding: '10px 14px', color: '#4ade80', fontSize: 13, marginBottom: 16,
-          }}>{success}</div>
+            background: 'color-mix(in srgb, var(--green) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--green) 30%, transparent)',
+            borderRadius: 6, padding: '10px 14px',
+            color: 'var(--green)', fontSize: 13, marginBottom: 16,
+          }}>
+            {success}
+          </div>
         )}
 
-        {/* Actions */}
+        {/* ── Actions ───────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             type="button"
             onClick={handleDelete}
             disabled={deleting}
             style={{
-              padding: '10px 18px', borderRadius: 6, border: '1px solid #f8717130',
-              background: '#f8717110', color: '#f87171', cursor: 'pointer', fontSize: 13,
+              padding: '10px 18px', borderRadius: 6,
+              border: '1px solid color-mix(in srgb, var(--red) 30%, transparent)',
+              background: 'color-mix(in srgb, var(--red) 10%, transparent)',
+              color: 'var(--red)', cursor: 'pointer', fontSize: 13,
               display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'all 0.15s',
             }}
           >
-            {deleting ? <span className="loader" /> : <><Trash2 size={13} /> Hapus</>}
+            {deleting
+              ? <span className="loader" />
+              : <><Trash2 size={13} /> Hapus</>
+            }
           </button>
 
           <button
@@ -356,7 +388,10 @@ export default function BookingDetailPage() {
             disabled={saving}
             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
-            {saving ? <span className="loader" /> : <><Save size={14} /> Simpan Perubahan</>}
+            {saving
+              ? <span className="loader" />
+              : <><Save size={14} /> Simpan Perubahan</>
+            }
           </button>
         </div>
       </form>
@@ -365,7 +400,8 @@ export default function BookingDetailPage() {
 }
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 11, color: '#9a9678',
+  display: 'block', fontSize: 11,
+  color: 'var(--text-muted)',
   marginBottom: 6, fontFamily: 'var(--font-mono)',
   letterSpacing: '0.08em', fontWeight: 500,
 }

@@ -5,7 +5,6 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Building2, LayoutGrid, FileText, LogOut, BookOpen, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import GlobalSearch from '@/components/GlobalSearch'
 import { useNotifikasi } from '@/hooks/useNotifikasi'
 
 const navItems = [
@@ -84,23 +83,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Menu
           </div>
 
-          {/* ── GlobalSearch — tepat di atas navItems ── */}
-          <div style={{ marginBottom: 8, padding: '0 2px' }}>
-            <GlobalSearch />
-          </div>
-
           {navItems.map(({ href, icon: Icon, label, badge }) => {
             const isActive = pathname === href ||
               (href !== '/' && pathname.startsWith(href))
 
-            // Hitung nilai badge
             const badgeCount = badge === 'hampirCheckout'
               ? notif.hampirCheckout
               : badge === 'totalBelumBayar'
               ? notif.totalBelumBayar
               : 0
 
-            // Warna badge: kuning untuk hampirCheckout, merah untuk totalBelumBayar
             const badgeBg = badge === 'hampirCheckout' ? 'var(--amber)' : 'var(--red)'
 
             return (
@@ -138,7 +130,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Icon size={15} strokeWidth={isActive ? 2 : 1.7} />
                 <span style={{ flex: 1 }}>{label}</span>
 
-                {/* Badge notifikasi */}
                 {badge && badgeCount > 0 && (
                   <span style={{
                     background: badgeBg,
