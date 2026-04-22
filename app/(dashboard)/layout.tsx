@@ -1,27 +1,26 @@
 'use client'
-// app/(dashboard)/layout.tsx
 
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Building2, LayoutGrid, FileText, LogOut, BookOpen, ChevronRight } from 'lucide-react'
+import { Building2, LayoutGrid, FileText, LogOut, BookOpen, ChevronRight, Settings2 } from 'lucide-react'
 import Link from 'next/link'
-import { useNotifikasi } from '@/hooks/useNotifikasi'
 
 const navItems = [
-  { href: '/',        icon: LayoutGrid, label: 'Dashboard Kamar', badge: 'hampirCheckout' as const },
-  { href: '/booking', icon: BookOpen,   label: 'Data Booking',    badge: 'totalBelumBayar' as const },
-  { href: '/laporan', icon: FileText,   label: 'Laporan',         badge: null },
+  { href: '/',           icon: LayoutGrid, label: 'Dashboard Kamar' },
+  { href: '/booking',    icon: BookOpen,   label: 'Data Booking' },
+  { href: '/laporan',    icon: FileText,   label: 'Laporan' },
+  { href: '/pengaturan', icon: Settings2,  label: 'Pengaturan' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
   const pathname = usePathname()
-  const notif    = useNotifikasi()
 
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
+    router.refresh() // penting: paksa middleware re-validasi sesi
   }
 
   return (
@@ -82,19 +81,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }}>
             Menu
           </div>
-
-          {navItems.map(({ href, icon: Icon, label, badge }) => {
+          {navItems.map(({ href, icon: Icon, label }) => {
             const isActive = pathname === href ||
               (href !== '/' && pathname.startsWith(href))
-
-            const badgeCount = badge === 'hampirCheckout'
-              ? notif.hampirCheckout
-              : badge === 'totalBelumBayar'
-              ? notif.totalBelumBayar
-              : 0
-
-            const badgeBg = badge === 'hampirCheckout' ? 'var(--amber)' : 'var(--red)'
-
             return (
               <Link
                 key={href}
@@ -129,25 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 <Icon size={15} strokeWidth={isActive ? 2 : 1.7} />
                 <span style={{ flex: 1 }}>{label}</span>
-
-                {badge && badgeCount > 0 && (
-                  <span style={{
-                    background: badgeBg,
-                    color: '#fff',
-                    borderRadius: '50%',
-                    width: 16, height: 16,
-                    fontSize: 9, fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: 'var(--font-mono)',
-                    flexShrink: 0,
-                  }}>
-                    {badge === 'totalBelumBayar' && badgeCount > 9 ? '9+' : badgeCount}
-                  </span>
-                )}
-
-                {isActive && !badgeCount && (
-                  <ChevronRight size={13} style={{ opacity: 0.5 }} />
-                )}
+                {isActive && <ChevronRight size={13} style={{ opacity: 0.5 }} />}
               </Link>
             )
           })}
