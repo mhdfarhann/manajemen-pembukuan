@@ -1,12 +1,14 @@
 'use client'
 // components/DetailKamarModal.tsx
+// Versi dengan tombol Invoice
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient, type Database } from '@/lib/supabase'
 import { formatRupiah, sisaHari, formatNIKDisplay, labelDurasi } from '@/lib/harga'
 import { format } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
-import { X, LogOut, CalendarClock, CreditCard } from 'lucide-react'
+import { X, LogOut, CalendarClock, CreditCard, Printer } from 'lucide-react'
+import InvoiceModal from './InvoiceModal'
 
 type Kamar   = Database['public']['Tables']['kamar']['Row']
 type Booking = Database['public']['Tables']['booking']['Row']
@@ -20,9 +22,10 @@ export default function DetailKamarModal({ kamar, onClose }: Props) {
   const supabaseRef = useRef(createClient())
   const supabase    = supabaseRef.current
 
-  const [booking,  setBooking]  = useState<Booking | null>(null)
-  const [loading,  setLoading]  = useState(true)
-  const [deleting, setDeleting] = useState(false)
+  const [booking,      setBooking]      = useState<Booking | null>(null)
+  const [loading,      setLoading]      = useState(true)
+  const [deleting,     setDeleting]     = useState(false)
+  const [showInvoice,  setShowInvoice]  = useState(false)  // ← state invoice
 
   useEffect(() => {
     supabase
@@ -35,51 +38,48 @@ export default function DetailKamarModal({ kamar, onClose }: Props) {
       .then(({ data }) => { setBooking(data); setLoading(false) })
   }, [kamar.id, supabase])
 
- async function handleCheckout() {
-  if (!booking) return
-  if (!confirm(`Checkout ${booking.nama_tamu} dari kamar ${kamar.nomor_kamar}?\n\nKamar akan otomatis kosong.`)) return
-  setDeleting(true)
+  async function handleCheckout() {
+    if (!booking) return
+    if (!confirm(`Checkout ${booking.nama_tamu} dari kamar ${kamar.nomor_kamar}?\n\nKamar akan otomatis kosong.`)) return
+    setDeleting(true)
 
-  // 1. Simpan ke history dulu sebelum hapus
-  const { error: histErr } = await supabase
-    .from('booking_history')
-    .insert({
-      booking_id:   booking.id,
-      kamar_id:     booking.kamar_id,
-      nomor_kamar:  kamar.nomor_kamar,
-      lantai:       kamar.lantai,
-      nama_tamu:    booking.nama_tamu,
-      nik:          booking.nik,
-      nomor_hp:     booking.nomor_hp,
-      durasi:       booking.durasi,
-      tanggal_in:   booking.tanggal_in,
-      tanggal_out:  booking.tanggal_out,
-      harga_total:  booking.harga_total,
-      status_bayar: booking.status_bayar,
-      jumlah_dp:    booking.jumlah_dp,
-      catatan:      booking.catatan,
-      created_at:   booking.created_at,
-      checkout_at:  new Date().toISOString(),
-    })
+    const { error: histErr } = await supabase
+      .from('booking_history')
+      .insert({
+        booking_id:   booking.id,
+        kamar_id:     booking.kamar_id,
+        nomor_kamar:  kamar.nomor_kamar,
+        lantai:       kamar.lantai,
+        nama_tamu:    booking.nama_tamu,
+        nik:          booking.nik,
+        nomor_hp:     booking.nomor_hp,
+        durasi:       booking.durasi,
+        tanggal_in:   booking.tanggal_in,
+        tanggal_out:  booking.tanggal_out,
+        harga_total:  booking.harga_total,
+        status_bayar: booking.status_bayar,
+        jumlah_dp:    booking.jumlah_dp,
+        catatan:      booking.catatan,
+        created_at:   booking.created_at,
+        checkout_at:  new Date().toISOString(),
+      })
 
-  if (histErr) {
-    alert('Gagal menyimpan ke history: ' + histErr.message)
-    setDeleting(false)
-    return
+    if (histErr) {
+      alert('Gagal menyimpan ke history: ' + histErr.message)
+      setDeleting(false)
+      return
+    }
+
+    await Promise.all([
+      supabase.from('booking').delete().eq('id', booking.id),
+      supabase.from('kamar').update({ status: 'kosong' }).eq('id', kamar.id),
+    ])
+
+    onClose()
   }
-
-  // 2. Baru hapus booking aktif + update status kamar
-  await Promise.all([
-    supabase.from('booking').delete().eq('id', booking.id),
-    supabase.from('kamar').update({ status: 'kosong' }).eq('id', kamar.id),
-  ])
-
-  onClose()
-}
 
   async function updateStatusBayar(status: 'belum' | 'dp' | 'lunas') {
     if (!booking) return
-    // Kalau keluar dari DP, reset jumlah_dp ke null sekalian
     const jumlah_dp = status !== 'dp' ? null : booking.jumlah_dp
     await supabase
       .from('booking')
@@ -92,15 +92,25 @@ export default function DetailKamarModal({ kamar, onClose }: Props) {
   const warning = sisa > 0 && sisa <= 7
   const expired = sisa === 0
 
-  // durasi bisa integer (baru) atau string lama — tampilkan dengan aman
   function displayDurasi(durasi: unknown): string {
     if (typeof durasi === 'number') return labelDurasi(durasi)
     if (typeof durasi === 'string') {
       const parsed = parseInt(durasi, 10)
       if (!isNaN(parsed)) return labelDurasi(parsed)
-      return durasi // string lama seperti "1 bulan"
+      return durasi
     }
     return '—'
+  }
+
+  // Tampilkan InvoiceModal di atas modal ini
+  if (showInvoice && booking) {
+    return (
+      <InvoiceModal
+        booking={booking}
+        kamar={kamar}
+        onClose={() => setShowInvoice(false)}
+      />
+    )
   }
 
   return (
@@ -211,11 +221,9 @@ export default function DetailKamarModal({ kamar, onClose }: Props) {
               ))}
             </div>
 
-            {/* Info DP — tampil hanya saat status = dp */}
+            {/* Info DP */}
             {booking.status_bayar === 'dp' && booking.harga_total && (
-              <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16,
-              }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
                 <div style={{
                   padding: '10px 14px', borderRadius: 8,
                   background: 'var(--amber-light)', border: '1px solid var(--amber-border)',
@@ -290,11 +298,26 @@ export default function DetailKamarModal({ kamar, onClose }: Props) {
 
             <div className="divider" />
 
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 10 }}>
+            {/* ── Actions (3 tombol) ── */}
+            <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn-secondary" onClick={onClose} style={{ flex: 1 }}>
                 Tutup
               </button>
+
+              {/* ← Tombol Invoice baru */}
+              <button
+                onClick={() => setShowInvoice(true)}
+                className="btn-secondary"
+                style={{
+                  flex: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  border: '1px solid var(--accent-mid)',
+                  color: 'var(--accent)',
+                }}
+              >
+                <Printer size={13} /> Invoice
+              </button>
+
               <button
                 onClick={handleCheckout}
                 disabled={deleting}

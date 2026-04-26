@@ -297,3 +297,70 @@ select option { background: var(--bg); }
   font-size: 14px;
   color: var(--text-primary);
 }
+
+/* ─────────────────────────────────────────────────────────
+   TAMBAHKAN ke globals.css (di paling bawah)
+   Print styles untuk Invoice
+   ───────────────────────────────────────────────────────── */
+
+@media print {
+  /* Sembunyikan semua kecuali area invoice */
+  body > *:not(#invoice-print-root) {
+    display: none !important;
+  }
+
+  /* Override background untuk print (browser sering strip bg color) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Root invoice jadi full page */
+  #invoice-print-root {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999 !important;
+    background: white !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Area invoice */
+  .invoice-print-area {
+    width: 100% !important;
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 0 !important;
+    padding: 32px !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Sembunyikan toolbar (tombol Print, Close) */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Tampilkan watermark saat print */
+  .invoice-watermark {
+    display: block !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
+
+@media screen {
+  /* Sembunyikan watermark di layar */
+  .invoice-watermark {
+    display: none !important;
+  }
+}
