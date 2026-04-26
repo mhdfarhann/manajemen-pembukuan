@@ -9,7 +9,7 @@ import {
 } from '@/lib/harga'
 import { format } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
-import { X, CalendarDays, Banknote, User, CreditCard, Clock } from 'lucide-react'
+import { X, CalendarDays, Banknote, User, CreditCard, Clock, Phone } from 'lucide-react'
 
 type Kamar   = Database['public']['Tables']['kamar']['Row']
 type HargaRow = Database['public']['Tables']['harga']['Row']
@@ -30,6 +30,7 @@ export default function BookingModal({ kamar, onClose }: Props) {
   const [form, setForm] = useState({
     nama_tamu:   '',
     nik:         '',
+    nomor_hp:    '',
     durasi:      '1 bulan' as Durasi,
     tanggal_in:  format(new Date(), 'yyyy-MM-dd'),
     catatan:     '',
@@ -176,6 +177,25 @@ export default function BookingModal({ kamar, onClose }: Props) {
               )}
             </div>
           </div>
+
+          {/* Nomor HP */}
+            <div style={{ marginBottom: 14 }}>
+              <label className="field-label">
+                <Phone size={10} style={{ display: 'inline', marginRight: 4 }} />
+                Nomor HP
+                <span style={{ color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400, textTransform: 'none' }}>
+                  (opsional)
+                </span>
+              </label>
+              <input
+                type="tel"
+                placeholder="Contoh: 08123456789"
+                value={form.nomor_hp}
+                onChange={e => setForm({ ...form, nomor_hp: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+                maxLength={15}
+                style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}
+              />
+            </div>
 
           {/* Durasi + Tanggal IN — 2 kolom */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>

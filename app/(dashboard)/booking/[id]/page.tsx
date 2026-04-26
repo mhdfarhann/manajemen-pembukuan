@@ -37,6 +37,7 @@ export default function BookingDetailPage() {
   const [form, setForm] = useState({
     nama_tamu:   '',
     nik:         '',
+    nomor_hp:    '',
     durasi:      '1 bulan' as Durasi,
     tanggal_in:  '',
     status_bayar: 'belum' as 'belum' | 'dp' | 'lunas',
@@ -57,6 +58,7 @@ export default function BookingDetailPage() {
         setForm({
           nama_tamu:   b.nama_tamu,
           nik:         b.nik || '',
+          nomor_hp:    b.nomor_hp || '',
           durasi:      b.durasi as Durasi,
           tanggal_in:  b.tanggal_in,
           status_bayar: b.status_bayar as 'belum' | 'dp' | 'lunas',
@@ -99,6 +101,7 @@ export default function BookingDetailPage() {
       .update({
         nama_tamu:   form.nama_tamu.toUpperCase(),
         nik:         form.nik || null,
+        nomor_hp:    form.nomor_hp || null,
         durasi:      form.durasi,
         tanggal_in:  form.tanggal_in,
         tanggal_out: tanggalOut ? format(tanggalOut, 'yyyy-MM-dd') : booking!.tanggal_out,
@@ -251,6 +254,21 @@ export default function BookingDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Nomor HP */}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>
+              NOMOR HP <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>— opsional</span>
+            </label>
+            <input
+              type="tel"
+              placeholder="Contoh: 08123456789"
+              value={form.nomor_hp}
+              onChange={e => setForm({ ...form, nomor_hp: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+              maxLength={15}
+              style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}
+            />
           </div>
 
           {/* Durasi */}
