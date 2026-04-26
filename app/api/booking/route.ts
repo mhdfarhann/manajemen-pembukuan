@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { hitungTanggalOut, hitungHargaTotal, validasiNIK, type Durasi } from '@/lib/harga'
+import { hitungTanggalOut, hitungHargaTotal, validasiNIK } from '@/lib/harga'
 import { format } from 'date-fns'
 
 // GET /api/booking — ambil semua booking aktif
@@ -96,9 +96,11 @@ export async function POST(request: NextRequest) {
     .eq('lantai', kamar.lantai)
     .single()
 
-  const tanggalOut = hitungTanggalOut(new Date(tanggal_in), durasi as Durasi)
+  const hari = Number(durasi)
+
+  const tanggalOut = hitungTanggalOut(new Date(tanggal_in), hari)
   const hargaTotal = hargaData
-    ? hitungHargaTotal(hargaData.harga_harian, hargaData.harga_mingguan, hargaData.harga_bulanan, durasi as Durasi)
+    ? hitungHargaTotal(hargaData.harga_harian, hargaData.harga_mingguan, hargaData.harga_bulanan, hari)
     : null
 
   const { data, error } = await supabase
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
       kamar_id,
       nama_tamu: nama_tamu.toUpperCase(),
       nik: nik || null,
-      durasi,
+      durasi: hari,
       tanggal_in,
       tanggal_out: format(tanggalOut, 'yyyy-MM-dd'),
       harga_total: hargaTotal,
