@@ -1,44 +1,54 @@
 // lib/harga.ts
 
-import { addDays, addWeeks, addMonths } from 'date-fns'
+import { addDays } from 'date-fns'
 
-export type Durasi = '1 hari' | '1 minggu' | '2 minggu' | '1 bulan' | '2 bulan' | '3 bulan'
+// ── Durasi sekarang disimpan sebagai integer (jumlah hari) ──────────────────
+// Preset hanya untuk shortcut UI, bukan tipe data
 
-export const DURASI_OPTIONS: Durasi[] = [
-  '1 hari',
-  '1 minggu',
-  '2 minggu',
-  '1 bulan',
-  '2 bulan',
-  '3 bulan',
-]
-
-export function hitungTanggalOut(tanggalIn: Date, durasi: Durasi): Date {
-  switch (durasi) {
-    case '1 hari':   return addDays(tanggalIn, 1)
-    case '1 minggu': return addWeeks(tanggalIn, 1)
-    case '2 minggu': return addWeeks(tanggalIn, 2)
-    case '1 bulan':  return addMonths(tanggalIn, 1)
-    case '2 bulan':  return addMonths(tanggalIn, 2)
-    case '3 bulan':  return addMonths(tanggalIn, 3)
-    default:         return addMonths(tanggalIn, 1)
-  }
+export interface DurasiPreset {
+  label: string
+  hari:  number
 }
 
+export const DURASI_PRESETS: DurasiPreset[] = [
+  { label: '1 Hari',    hari: 1  },
+  { label: '1 Minggu',  hari: 7  },
+  { label: '2 Minggu',  hari: 14 },
+  { label: '1 Bulan',   hari: 30 },
+  { label: '2 Bulan',   hari: 60 },
+  { label: '3 Bulan',   hari: 90 },
+]
+
+// tanggalOut = tanggalIn + jumlah hari (integer)
+export function hitungTanggalOut(tanggalIn: Date, hari: number): Date {
+  return addDays(tanggalIn, Math.max(1, hari))
+}
+
+// Hitung harga berdasarkan jumlah hari
+// Logika tier: gunakan harga terbaik sesuai durasi
 export function hitungHargaTotal(
-  hargaHarian: number | null,
+  hargaHarian:   number | null,
   hargaMingguan: number | null,
-  hargaBulanan: number,
-  durasi: Durasi
+  hargaBulanan:  number,
+  hari: number,
 ): number {
-  switch (durasi) {
-    case '1 hari':   return hargaHarian ?? Math.round(hargaBulanan / 30)
-    case '1 minggu': return hargaMingguan ?? Math.round(hargaBulanan / 4)
-    case '2 minggu': return hargaMingguan ? hargaMingguan * 2 : Math.round(hargaBulanan / 2)
-    case '1 bulan':  return hargaBulanan
-    case '2 bulan':  return hargaBulanan * 2
-    case '3 bulan':  return hargaBulanan * 3
-    default:         return hargaBulanan
+  const perHari    = hargaHarian   ?? Math.round(hargaBulanan / 30)
+  const perMinggu  = hargaMingguan ?? Math.round(hargaBulanan / 4)
+
+  if (hari < 7) {
+    // < 1 minggu → hitung harian
+    return perHari * hari
+  } else if (hari < 30) {
+    // 1–29 hari → hitung per minggu + sisa hari
+    const minggu   = Math.floor(hari / 7)
+    const sisaHari = hari % 7
+    return minggu * perMinggu + sisaHari * perHari
+  } else {
+    // ≥ 30 hari → hitung per bulan + sisa hari
+    const bulan    = Math.floor(hari / 30)
+    const sisaHari = hari % 30
+    // sisa hari dihitung proporsional (per hari)
+    return bulan * hargaBulanan + sisaHari * perHari
   }
 }
 
@@ -72,4 +82,18 @@ export function sisaHari(tanggalOut: string): number {
 
 export function isExpired(tanggalOut: string): boolean {
   return sisaHari(tanggalOut) === 0
+}
+
+// Konversi integer hari → label ringkas untuk display
+export function labelDurasi(hari: number): string {
+  if (hari === 1)  return '1 hari'
+  if (hari < 7)    return `${hari} hari`
+  if (hari === 7)  return '1 minggu'
+  if (hari < 30)   return `${hari} hari`
+  if (hari === 30) return '1 bulan'
+  if (hari < 60)   return `${hari} hari`
+  if (hari === 60) return '2 bulan'
+  if (hari < 90)   return `${hari} hari`
+  if (hari === 90) return '3 bulan'
+  return `${hari} hari`
 }

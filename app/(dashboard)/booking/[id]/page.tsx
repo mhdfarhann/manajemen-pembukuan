@@ -6,8 +6,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient, type Database } from '@/lib/supabase'
 import {
-  DURASI_OPTIONS, hitungTanggalOut, hitungHargaTotal,
-  formatRupiah, validasiNIK, sisaHari, type Durasi
+  DURASI_PRESETS, hitungTanggalOut, hitungHargaTotal,
+  formatRupiah, validasiNIK, sisaHari, labelDurasi,
 } from '@/lib/harga'
 import { format } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
@@ -33,15 +33,15 @@ export default function BookingDetailPage() {
   const [error,     setError]     = useState('')
   const [success,   setSuccess]   = useState('')
 
-  // Form state
+  // Form state — durasi sekarang integer (jumlah hari)
   const [form, setForm] = useState({
-    nama_tamu:   '',
-    nik:         '',
-    nomor_hp:    '',
-    durasi:      '1 bulan' as Durasi,
-    tanggal_in:  '',
+    nama_tamu:    '',
+    nik:          '',
+    nomor_hp:     '',
+    durasi_hari:  30,          // integer
+    tanggal_in:   '',
     status_bayar: 'belum' as 'belum' | 'dp' | 'lunas',
-    catatan:     '',
+    catatan:      '',
   })
 
   useEffect(() => {
@@ -55,14 +55,20 @@ export default function BookingDetailPage() {
       if (data) {
         const b = data as Booking
         setBooking(b)
+
+        // durasi bisa number (baru) atau string lama — parse aman
+        const durasiHari = typeof b.durasi === 'number'
+          ? b.durasi
+          : parseInt(String(b.durasi), 10) || 30
+
         setForm({
-          nama_tamu:   b.nama_tamu,
-          nik:         b.nik || '',
-          nomor_hp:    b.nomor_hp || '',
-          durasi:      b.durasi as Durasi,
-          tanggal_in:  b.tanggal_in,
+          nama_tamu:    b.nama_tamu,
+          nik:          b.nik || '',
+          nomor_hp:     b.nomor_hp || '',
+          durasi_hari:  durasiHari,
+          tanggal_in:   b.tanggal_in,
           status_bayar: b.status_bayar as 'belum' | 'dp' | 'lunas',
-          catatan:     b.catatan || '',
+          catatan:      b.catatan || '',
         })
 
         const { data: harga } = await supabase
@@ -78,12 +84,21 @@ export default function BookingDetailPage() {
   }, [id, supabase])
 
   const tanggalOut = form.tanggal_in
-    ? hitungTanggalOut(new Date(form.tanggal_in), form.durasi)
+    ? hitungTanggalOut(new Date(form.tanggal_in + 'T00:00:00'), form.durasi_hari)
     : null
 
   const hargaTotal = hargaData && tanggalOut
-    ? hitungHargaTotal(hargaData.harga_harian, hargaData.harga_mingguan, hargaData.harga_bulanan, form.durasi)
-    : booking?.harga_total
+    ? hitungHargaTotal(
+        hargaData.harga_harian,
+        hargaData.harga_mingguan,
+        hargaData.harga_bulanan,
+        form.durasi_hari,
+      )
+    : (booking?.harga_total ?? null)
+
+  function adjustHari(delta: number) {
+    setForm(f => ({ ...f, durasi_hari: Math.max(1, Math.min(365, f.durasi_hari + delta)) }))
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -94,20 +109,26 @@ export default function BookingDetailPage() {
       setError('NIK harus 16 digit angka.')
       return
     }
+    if (form.durasi_hari < 1) {
+      setError('Durasi minimal 1 hari.')
+      return
+    }
 
     setSaving(true)
     const { error: err } = await supabase
       .from('booking')
       .update({
-        nama_tamu:   form.nama_tamu.toUpperCase(),
-        nik:         form.nik || null,
-        nomor_hp:    form.nomor_hp || null,
-        durasi:      form.durasi,
-        tanggal_in:  form.tanggal_in,
-        tanggal_out: tanggalOut ? format(tanggalOut, 'yyyy-MM-dd') : booking!.tanggal_out,
-        harga_total: hargaTotal,
+        nama_tamu:    form.nama_tamu.toUpperCase(),
+        nik:          form.nik || null,
+        nomor_hp:     form.nomor_hp || null,
+        durasi:       form.durasi_hari,          // integer
+        tanggal_in:   form.tanggal_in,
+        tanggal_out:  tanggalOut
+          ? format(tanggalOut, 'yyyy-MM-dd')
+          : booking!.tanggal_out,
+        harga_total:  hargaTotal,
         status_bayar: form.status_bayar,
-        catatan:     form.catatan || null,
+        catatan:      form.catatan || null,
       })
       .eq('id', id)
 
@@ -121,7 +142,9 @@ export default function BookingDetailPage() {
 
   async function handleDelete() {
     if (!booking) return
-    if (!confirm(`Hapus booking ${booking.nama_tamu} dari kamar ${booking.kamar.nomor_kamar}?\nKamar akan otomatis jadi kosong.`)) return
+    if (!confirm(
+      `Hapus booking ${booking.nama_tamu} dari kamar ${booking.kamar.nomor_kamar}?\nKamar akan otomatis jadi kosong.`
+    )) return
 
     setDeleting(true)
     await supabase.from('booking').delete().eq('id', id)
@@ -204,6 +227,10 @@ export default function BookingDetailPage() {
           <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
             CHECK-IN {format(new Date(booking.tanggal_in), 'dd MMM yyyy', { locale: localeID }).toUpperCase()}
           </span>
+          <span style={{ color: 'var(--border)' }}>·</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            DURASI {labelDurasi(form.durasi_hari).toUpperCase()}
+          </span>
         </div>
       </div>
 
@@ -271,15 +298,97 @@ export default function BookingDetailPage() {
             />
           </div>
 
-          {/* Durasi */}
-          <div>
-            <label style={labelStyle}>DURASI *</label>
-            <select
-              value={form.durasi}
-              onChange={e => setForm({ ...form, durasi: e.target.value as Durasi })}
-            >
-              {DURASI_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+          {/* ── DURASI (integer hari) ──────────────────── */}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>DURASI (HARI) *</label>
+
+            {/* Stepper + input angka */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <button
+                type="button"
+                onClick={() => adjustHari(-1)}
+                style={{
+                  width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                  border: '1px solid var(--border)', background: 'var(--bg-secondary)',
+                  cursor: 'pointer', fontSize: 18, fontWeight: 500,
+                  color: 'var(--text-secondary)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)';  e.currentTarget.style.color = 'var(--text-secondary)' }}
+              >
+                −
+              </button>
+
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={form.durasi_hari}
+                  onChange={e => setForm({
+                    ...form,
+                    durasi_hari: Math.max(1, Math.min(365, Number(e.target.value) || 1)),
+                  })}
+                  style={{
+                    textAlign: 'center',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: 20,
+                    paddingRight: 44,
+                  }}
+                />
+                <span style={{
+                  position: 'absolute', right: 12, top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: 12, color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)', pointerEvents: 'none',
+                }}>
+                  hari
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => adjustHari(1)}
+                style={{
+                  width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                  border: '1px solid var(--border)', background: 'var(--bg-secondary)',
+                  cursor: 'pointer', fontSize: 18, fontWeight: 500,
+                  color: 'var(--text-secondary)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)';  e.currentTarget.style.color = 'var(--text-secondary)' }}
+              >
+                +
+              </button>
+            </div>
+
+            {/* Preset shortcut buttons */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {DURASI_PRESETS.map(({ label, hari }) => {
+                const active = form.durasi_hari === hari
+                return (
+                  <button
+                    key={hari}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, durasi_hari: hari }))}
+                    style={{
+                      padding: '5px 12px', borderRadius: 7, fontSize: 12,
+                      border: '1px solid',
+                      borderColor: active ? 'var(--accent)' : 'var(--border)',
+                      background: active ? 'var(--accent-light)' : 'var(--bg)',
+                      color: active ? 'var(--accent)' : 'var(--text-muted)',
+                      cursor: 'pointer', fontWeight: active ? 600 : 400,
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Tanggal IN */}
@@ -297,8 +406,9 @@ export default function BookingDetailPage() {
           <div>
             <label style={labelStyle}>TANGGAL KELUAR (OTOMATIS)</label>
             <div style={{
-              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
-              padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 13,
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '10px 12px',
+              fontFamily: 'var(--font-mono)', fontSize: 13,
               color: 'var(--amber)',
             }}>
               {tanggalOut
@@ -308,14 +418,15 @@ export default function BookingDetailPage() {
           </div>
 
           {/* Harga otomatis */}
-          <div>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>HARGA TOTAL (OTOMATIS)</label>
             <div style={{
-              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
-              padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 13,
-              color: 'var(--green)', fontWeight: 500,
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '10px 12px',
+              fontFamily: 'var(--font-mono)', fontSize: 15,
+              color: 'var(--green)', fontWeight: 600,
             }}>
-              {hargaTotal ? formatRupiah(hargaTotal) : '—'}
+              {hargaTotal != null ? formatRupiah(hargaTotal) : '—'}
             </div>
           </div>
 
