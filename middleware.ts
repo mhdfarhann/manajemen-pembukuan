@@ -21,6 +21,9 @@ function getTenantSlug(request: NextRequest): string | null {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const tenantSlug = getTenantSlug(request)
+  const host = request.headers.get('host')?.split(':')[0] ?? ''
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN!
+  const isMainDomain = host === baseDomain || host === `www.${baseDomain}`
 
   let supabaseResponse = NextResponse.next({ request })
 
@@ -63,24 +66,53 @@ export async function middleware(request: NextRequest) {
   // ✅ Untuk domain utama: proteksi auth seperti biasa
   const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
 
-  if (!user && !isPublic) {
+  // ✅ Request dari subdomain tenant → rewrite ke landing page
+  if (tenantSlug) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    const redirectResponse = NextResponse.redirect(url)
-    supabaseResponse.cookies.getAll().forEach(c =>
-      redirectResponse.cookies.set(c.name, c.value)
-    )
-    return redirectResponse
+    if (!pathname.startsWith('/_tenant')) {
+      url.pathname = `/_tenant${pathname === '/' ? '' : pathname}`
+      const rewriteResponse = NextResponse.rewrite(url)
+      rewriteResponse.headers.set('x-tenant-slug', tenantSlug)
+      return rewriteResponse
+    }
+    supabaseResponse.headers.set('x-tenant-slug', tenantSlug)
+    return supabaseResponse
   }
 
-  if (user && pathname.startsWith('/login')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    const redirectResponse = NextResponse.redirect(url)
-    supabaseResponse.cookies.getAll().forEach(c =>
-      redirectResponse.cookies.set(c.name, c.value)
-    )
-    return redirectResponse
+  // ✅ Request dari domain utama → dashboard admin
+  if (isMainDomain) {
+    const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
+
+    if (!user && !isPublic) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+
+    if (user && pathname.startsWith('/login')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+
+    // ✅ Validasi user hanya bisa akses tenant miliknya
+    if (user && !pathname.startsWith('/login')) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!userData) {
+        // User ada di auth tapi tidak terdaftar di tabel users → logout
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+      }
+
+      // Simpan tenant_id di header untuk dipakai di dashboard
+      supabaseResponse.headers.set('x-tenant-id', userData.tenant_id)
+    }
   }
 
   return supabaseResponse
