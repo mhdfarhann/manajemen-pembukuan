@@ -3,19 +3,8 @@
 import { createServerClient } from '@/lib/supabase/server'
 import type { TenantConfig, TenantTemplate, TenantPlan } from '@/types/tenant'
 
-// ─── Ambil config tenant by slug ─────────────────────────────────────────
 export async function getTenantBySlug(slug: string): Promise<TenantConfig | null> {
   const supabase = await createServerClient()
-
-  console.log('🌐 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-  
-  // Test query paling simpel tanpa filter
-  const { data: all, error: allError } = await supabase
-    .from('tenants')
-    .select('id, slug')
-    
-  console.log('📋 Semua tenant:', all)
-  console.log('📋 Error semua:', JSON.stringify(allError, null, 2))
 
   const { data: tenant, error } = await supabase
     .from('tenants')
@@ -25,9 +14,9 @@ export async function getTenantBySlug(slug: string): Promise<TenantConfig | null
     .single()
 
   console.log('🔍 slug:', slug)
-  console.log('📦 tenant:', tenant)
-  console.log('❌ error full:', JSON.stringify(error, null, 2))
-  console.log('❌ error message:', (error as any)?.message)
+  console.log('📦 tenant id:', tenant?.id)
+  console.log('📦 tenant nama:', tenant?.nama)
+  console.log('❌ error:', error?.message)
 
   if (!tenant) return null
 
@@ -54,7 +43,7 @@ export async function getTenantBySlug(slug: string): Promise<TenantConfig | null
   return {
     tenant: {
       ...tenant,
-      plan: tenant.plan as TenantPlan,   // cast: DB simpan string, kita tahu nilainya valid
+      plan: tenant.plan as TenantPlan,
     },
     theme: theme
       ? { ...theme, template: theme.template as TenantTemplate }
@@ -62,7 +51,6 @@ export async function getTenantBySlug(slug: string): Promise<TenantConfig | null
   }
 }
 
-// ─── Ambil tenant_id dari user yang sedang login ──────────────────────────
 export async function getTenantIdFromUser(): Promise<string | null> {
   const supabase = await createServerClient()
 
@@ -78,30 +66,41 @@ export async function getTenantIdFromUser(): Promise<string | null> {
   return data?.tenant_id ?? null
 }
 
-// ─── Ambil kamar kosong milik tenant — untuk landing page ────────────────
 export async function getKamarByTenant(tenantId: string) {
   const supabase = await createServerClient()
 
-  const { data } = await supabase
+  console.log('🚪 getKamarByTenant → tenantId:', tenantId)
+
+  const { data, error } = await supabase
     .from('kamar')
-    .select('id, nomor_kamar, lantai, tipe, status, catatan')
+    .select('id, nomor_kamar, lantai, tipe, status, catatan, tenant_id')
     .eq('tenant_id', tenantId)
     .eq('status', 'kosong')
     .order('lantai')
     .order('nomor_kamar')
 
-  return data ?? []
+  console.log('🚪 kamar count:', data?.length)
+  console.log('🚪 kamar tenant_ids:', [...new Set(data?.map(k => k.tenant_id))])
+  console.log('❌ kamar error:', error?.message)
+
+  // Hapus tenant_id dari hasil (tidak perlu di frontend)
+  return (data ?? []).map(({ tenant_id, ...rest }) => rest)
 }
 
-// ─── Ambil daftar harga milik tenant — untuk landing page ────────────────
 export async function getHargaByTenant(tenantId: string) {
   const supabase = await createServerClient()
 
-  const { data } = await supabase
+  console.log('💰 getHargaByTenant → tenantId:', tenantId)
+
+  const { data, error } = await supabase
     .from('harga')
-    .select('lantai, tipe, harga_harian, harga_mingguan, harga_bulanan')
+    .select('lantai, tipe, harga_harian, harga_mingguan, harga_bulanan, tenant_id')
     .eq('tenant_id', tenantId)
     .order('lantai')
 
-  return data ?? []
+  console.log('💰 harga count:', data?.length)
+  console.log('💰 harga tenant_ids:', [...new Set(data?.map(h => h.tenant_id))])
+  console.log('❌ harga error:', error?.message)
+
+  return (data ?? []).map(({ tenant_id, ...rest }) => rest)
 }

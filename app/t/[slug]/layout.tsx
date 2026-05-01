@@ -1,3 +1,5 @@
+//t/[slug]/layout.tsx
+
 import { notFound }        from 'next/navigation'
 import { getTenantBySlug } from '@/lib/tenant'
 import type { Metadata }   from 'next'
