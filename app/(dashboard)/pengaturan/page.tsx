@@ -7,14 +7,15 @@ import { formatRupiah } from '@/lib/harga'
 import {
   Plus, Trash2, Pencil, Check, X, Building2,
   ChevronDown, ChevronUp, Hash, Layers, Tag,
-  DollarSign, AlertCircle, PackagePlus, Settings2
+  DollarSign, AlertCircle, PackagePlus, Settings2,
+  ImageIcon
 } from 'lucide-react'
 
 type Kamar   = Database['public']['Tables']['kamar']['Row']
 type HargaRow = Database['public']['Tables']['harga']['Row']
 
 // ─── Tab navigation ──────────────────────────────────────────
-type Tab = 'kamar' | 'harga'
+type Tab = 'kamar' | 'harga' | 'media'
 
 export default function PengaturanPage() {
   const [activeTab, setActiveTab] = useState<Tab>('kamar')
@@ -43,6 +44,9 @@ export default function PengaturanPage() {
         {([
           { key: 'kamar', label: 'Manajemen Kamar', icon: Building2 },
           { key: 'harga', label: 'Harga Sewa',       icon: DollarSign },
+          { key: 'media', label: 'Branding & Media', icon: ImageIcon },
+
+          
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -64,6 +68,8 @@ export default function PengaturanPage() {
       </div>
 
       {activeTab === 'kamar' ? <TabKamar /> : <TabHarga />}
+      {activeTab === 'media' && <TabMedia />}
+
     </div>
   )
 }
@@ -678,6 +684,372 @@ function TabKamar() {
               })}
             </tbody>
           </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Tambahkan import di atas: import { Image as ImageIcon } from 'lucide-react'
+
+function TabMedia() {
+  const supabaseRef = useRef(createClient())
+  const supabase    = supabaseRef.current
+
+  const [kamarList,   setKamarList]   = useState<Kamar[]>([])
+  const [images,      setImages]      = useState<any[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [uploading,   setUploading]   = useState(false)
+  const [error,       setError]       = useState('')
+  const [success,     setSuccess]     = useState('')
+  const [selectedKamarId, setSelectedKamarId] = useState<string>('')
+  const [logoUploading,   setLogoUploading]   = useState(false)
+  const [tenantId,    setTenantId]    = useState<string>('')
+  const [logoUrl,     setLogoUrl]     = useState<string>('')
+  const fileInputRef  = useRef<HTMLInputElement>(null)
+  const logoInputRef  = useRef<HTMLInputElement>(null)
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+
+    const { data: userData } = await supabase
+      .from('users').select('tenant_id').eq('id', user.id).single()
+    if (!userData) { setLoading(false); return }
+
+    const tid = userData.tenant_id
+    setTenantId(tid)
+
+    const [{ data: kamar }, { data: imgs }, { data: theme }] = await Promise.all([
+      supabase.from('kamar').select('*').eq('tenant_id', tid).order('lantai').order('nomor_kamar'),
+      supabase.from('kamar_images').select('*').eq('tenant_id', tid).order('urutan'),
+      supabase.from('tenant_theme').select('logo_url').eq('tenant_id', tid).single(),
+    ])
+
+    if (kamar) { setKamarList(kamar); if (!selectedKamarId && kamar.length > 0) setSelectedKamarId(kamar[0].id) }
+    if (imgs)  setImages(imgs)
+    if (theme?.logo_url) setLogoUrl(theme.logo_url)
+    setLoading(false)
+  }, [supabase, selectedKamarId])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  function flash(msg: string, type: 'success' | 'error' = 'success') {
+    if (type === 'success') { setSuccess(msg); setTimeout(() => setSuccess(''), 3000) }
+    else                    { setError(msg);   setTimeout(() => setError(''), 4000) }
+  }
+
+  // ── Upload logo ──────────────────────────────────────────────────────
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !tenantId) return
+
+    if (file.size > 2 * 1024 * 1024) { flash('Logo maksimal 2MB.', 'error'); return }
+    if (!['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.type)) {
+      flash('Format logo: PNG, JPG, SVG, atau WEBP.', 'error'); return
+    }
+
+    setLogoUploading(true)
+    const ext  = file.name.split('.').pop()
+    const path = `${tenantId}/logo/logo.${ext}`
+
+    const { error: upErr } = await supabase.storage
+      .from('tenant-media')
+      .upload(path, file, { upsert: true, contentType: file.type })
+
+    if (upErr) { flash(upErr.message, 'error'); setLogoUploading(false); return }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('tenant-media').getPublicUrl(path)
+
+    await supabase.from('tenant_theme')
+      .update({ logo_url: publicUrl })
+      .eq('tenant_id', tenantId)
+
+    setLogoUrl(publicUrl)
+    flash('Logo berhasil diupload.')
+    setLogoUploading(false)
+  }
+
+  // ── Upload foto kamar (multi-file) ───────────────────────────────────
+  async function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0 || !selectedKamarId || !tenantId) return
+
+    // Validasi
+    for (const f of files) {
+      if (f.size > 5 * 1024 * 1024) { flash(`${f.name} melebihi 5MB.`, 'error'); return }
+      if (!f.type.startsWith('image/')) { flash(`${f.name} bukan gambar.`, 'error'); return }
+    }
+
+    setUploading(true)
+    const existingCount = images.filter(img => img.kamar_id === selectedKamarId).length
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const ext  = file.name.split('.').pop()
+      const path = `${tenantId}/kamar/${selectedKamarId}/${Date.now()}-${i}.${ext}`
+
+      const { error: upErr } = await supabase.storage
+        .from('tenant-media')
+        .upload(path, file, { contentType: file.type })
+
+      if (upErr) { flash(`Gagal upload ${file.name}: ${upErr.message}`, 'error'); continue }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('tenant-media').getPublicUrl(path)
+
+      await supabase.from('kamar_images').insert({
+        kamar_id:     selectedKamarId,
+        tenant_id:    tenantId,
+        url:          publicUrl,
+        storage_path: path,
+        urutan:       existingCount + i,
+        is_cover:     existingCount === 0 && i === 0, // foto pertama jadi cover otomatis
+      })
+    }
+
+    flash(`${files.length} foto berhasil diupload.`)
+    fetchAll()
+    setUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // ── Set cover ────────────────────────────────────────────────────────
+  async function handleSetCover(imgId: string) {
+    // Reset semua is_cover di kamar ini dulu
+    const kamarImgs = images.filter(img => img.kamar_id === selectedKamarId)
+    await Promise.all(kamarImgs.map(img =>
+      supabase.from('kamar_images').update({ is_cover: img.id === imgId }).eq('id', img.id)
+    ))
+    setImages(prev => prev.map(img =>
+      img.kamar_id === selectedKamarId
+        ? { ...img, is_cover: img.id === imgId }
+        : img
+    ))
+    flash('Foto cover diperbarui.')
+  }
+
+  // ── Hapus foto ───────────────────────────────────────────────────────
+  async function handleDeleteImg(img: any) {
+    if (!confirm('Hapus foto ini?')) return
+    await supabase.storage.from('tenant-media').remove([img.storage_path])
+    await supabase.from('kamar_images').delete().eq('id', img.id)
+    setImages(prev => prev.filter(i => i.id !== img.id))
+    flash('Foto dihapus.')
+  }
+
+  const selectedKamarImages = images.filter(img => img.kamar_id === selectedKamarId)
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 60, gap: 10 }}>
+        <div className="loader" />
+        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Memuat data...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Feedback */}
+      {(success || error) && (
+        <div style={{
+          background: success ? 'var(--green-light)' : 'var(--red-light)',
+          border: `1px solid ${success ? 'var(--green-border)' : 'var(--red-border)'}`,
+          borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+          color: success ? 'var(--green)' : 'var(--red)',
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {success || error}
+        </div>
+      )}
+
+      {/* ── Section: Logo ── */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#fff', fontSize: 14 }}>★</span>
+          </div>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Logo Penginapan</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          {/* Preview logo */}
+          <div style={{
+            width: 100, height: 80, borderRadius: 10,
+            border: '1.5px dashed var(--border)',
+            background: 'var(--bg-secondary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', flexShrink: 0,
+          }}>
+            {logoUrl
+              ? <img src={logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              : <span style={{ fontSize: 24, color: 'var(--text-muted)' }}>🏠</span>
+            }
+          </div>
+
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>
+              Format: PNG, JPG, SVG, WEBP. Maks 2MB.<br />
+              Rekomendasi: transparan background, min 200×80px.
+            </p>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleLogoUpload}
+            />
+            <button
+              className="btn-primary"
+              onClick={() => logoInputRef.current?.click()}
+              disabled={logoUploading}
+              style={{ display: 'flex', alignItems: 'center', gap: 7 }}
+            >
+              {logoUploading
+                ? <><span className="loader" style={{ width: 13, height: 13 }} /> Mengupload...</>
+                : <>{logoUrl ? '↑ Ganti Logo' : '↑ Upload Logo'}</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Section: Foto Kamar ── */}
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: '#fff', fontSize: 14 }}>📷</span>
+            </div>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Foto Kamar</span>
+          </div>
+
+          {/* Pilih kamar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Kamar:</label>
+            <select
+              value={selectedKamarId}
+              onChange={e => setSelectedKamarId(e.target.value)}
+              style={{ width: 140 }}
+            >
+              {kamarList.map(k => (
+                <option key={k.id} value={k.id}>
+                  {k.nomor_kamar} (Lt.{k.lantai})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Drop zone upload */}
+        <div
+          style={{
+            border: '2px dashed var(--border)', borderRadius: 10,
+            padding: '28px 20px', textAlign: 'center',
+            background: 'var(--bg-secondary)', marginBottom: 20,
+            cursor: 'pointer', transition: 'border-color 0.15s',
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent)' }}
+          onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          onDrop={async e => {
+            e.preventDefault()
+            e.currentTarget.style.borderColor = 'var(--border)'
+            const fakeEvt = { target: { files: e.dataTransfer.files } } as any
+            handleFotoUpload(fakeEvt)
+          }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+        >
+          <div style={{ fontSize: 28, marginBottom: 8 }}>📸</div>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+            {uploading ? 'Mengupload...' : 'Klik atau drag foto ke sini'}
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+            Mendukung beberapa file sekaligus · JPG, PNG, WEBP · Maks 5MB per foto
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleFotoUpload}
+          />
+        </div>
+
+        {/* Grid foto yang sudah diupload */}
+        {selectedKamarImages.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+            Belum ada foto untuk kamar ini. Upload di atas.
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+            gap: 12,
+          }}>
+            {selectedKamarImages.map(img => (
+              <div key={img.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden' }}>
+                <img
+                  src={img.url}
+                  alt=""
+                  style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', display: 'block' }}
+                />
+
+                {/* Badge cover */}
+                {img.is_cover && (
+                  <div style={{
+                    position: 'absolute', top: 6, left: 6,
+                    background: 'var(--accent)', color: '#fff',
+                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10,
+                    letterSpacing: '0.06em',
+                  }}>
+                    COVER
+                  </div>
+                )}
+
+                {/* Overlay aksi */}
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'rgba(0,0,0,0)', transition: 'background 0.2s',
+                  display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                  gap: 6, padding: 8,
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.45)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}
+                >
+                  {!img.is_cover && (
+                    <button
+                      onClick={() => handleSetCover(img.id)}
+                      title="Jadikan cover"
+                      style={{
+                        background: 'rgba(255,255,255,0.9)', border: 'none',
+                        borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
+                        fontSize: 11, fontWeight: 600, color: '#374151',
+                      }}
+                    >
+                      Cover
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteImg(img)}
+                    title="Hapus foto"
+                    style={{
+                      background: 'rgba(239,68,68,0.9)', border: 'none',
+                      borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
+                      color: '#fff', fontSize: 11,
+                    }}
+                  >
+                    Hapus
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

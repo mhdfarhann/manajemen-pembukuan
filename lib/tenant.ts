@@ -104,3 +104,25 @@ export async function getHargaByTenant(tenantId: string) {
 
   return (data ?? []).map(({ tenant_id, ...rest }) => rest)
 }
+
+// lib/tenant.ts — tambahkan fungsi ini
+
+export interface KamarImage {
+  id:           string
+  kamar_id:     string
+  url:          string
+  storage_path: string
+  urutan:       number
+  is_cover:     boolean
+  caption:      string | null
+}
+
+export async function getImagesByTenant(tenantId: string): Promise<KamarImage[]> {
+  const supabase = await createServerClient()
+  const { data } = await supabase
+    .from('kamar_images')
+    .select('id, kamar_id, url, storage_path, urutan, is_cover, caption')
+    .eq('tenant_id', tenantId)
+    .order('urutan', { ascending: true })
+  return (data ?? []) as KamarImage[]
+}
