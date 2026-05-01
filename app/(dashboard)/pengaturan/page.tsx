@@ -6,16 +6,24 @@ import { createClient, type Database } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/harga'
 import {
   Plus, Trash2, Pencil, Check, X, Building2,
-  ChevronDown, ChevronUp, Hash, Layers, Tag,
-  DollarSign, AlertCircle, PackagePlus, Settings2,
+  Hash, Layers, Tag,
+  DollarSign, AlertCircle, PackagePlus,
   ImageIcon
 } from 'lucide-react'
 
-type Kamar   = Database['public']['Tables']['kamar']['Row']
+type Kamar    = Database['public']['Tables']['kamar']['Row']
 type HargaRow = Database['public']['Tables']['harga']['Row']
 
-// ─── Tab navigation ──────────────────────────────────────────
 type Tab = 'kamar' | 'harga' | 'media'
+
+// ─── Helper: ambil tenant_id user yang sedang login ───────────
+async function getTenantId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await supabase
+    .from('users').select('tenant_id').eq('id', user.id).single()
+  return data?.tenant_id ?? null
+}
 
 export default function PengaturanPage() {
   const [activeTab, setActiveTab] = useState<Tab>('kamar')
@@ -45,8 +53,6 @@ export default function PengaturanPage() {
           { key: 'kamar', label: 'Manajemen Kamar', icon: Building2 },
           { key: 'harga', label: 'Harga Sewa',       icon: DollarSign },
           { key: 'media', label: 'Branding & Media', icon: ImageIcon },
-
-          
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -67,7 +73,9 @@ export default function PengaturanPage() {
         ))}
       </div>
 
-      {activeTab === 'kamar' ? <TabKamar /> : <TabHarga />}
+      {/* ✅ Fix: render hanya tab yang aktif */}
+      {activeTab === 'kamar' && <TabKamar />}
+      {activeTab === 'harga' && <TabHarga />}
       {activeTab === 'media' && <TabMedia />}
 
     </div>
@@ -81,30 +89,32 @@ function TabKamar() {
   const supabaseRef = useRef(createClient())
   const supabase    = supabaseRef.current
 
-  const [kamarList, setKamarList] = useState<Kamar[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [saving,    setSaving]    = useState(false)
-  const [error,     setError]     = useState('')
-  const [success,   setSuccess]   = useState('')
+  const [kamarList,    setKamarList]   = useState<Kamar[]>([])
+  const [loading,      setLoading]     = useState(true)
+  const [saving,       setSaving]      = useState(false)
+  const [error,        setError]       = useState('')
+  const [success,      setSuccess]     = useState('')
+  const [tenantId,     setTenantId]    = useState<string>('')   // ✅ tambah state
 
-  // Edit inline state
   const [editId,   setEditId]   = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Kamar>>({})
 
-  // Form tambah single kamar
   const [showAddForm, setShowAddForm] = useState(false)
   const [addForm, setAddForm] = useState({ nomor_kamar: '', lantai: 1, tipe: 'standard', catatan: '' })
 
-  // Form tambah batch (multiple kamar sekaligus)
-  const [showBatch,  setShowBatch]  = useState(false)
+  const [showBatch,   setShowBatch]   = useState(false)
   const [batchLantai, setBatchLantai] = useState(1)
   const [batchDari,   setBatchDari]   = useState(1)
   const [batchSampai, setBatchSampai] = useState(10)
   const [batchPrefix, setBatchPrefix] = useState('')
   const [batchTipe,   setBatchTipe]   = useState('standard')
 
-  // Filter tampilan
   const [filterLantai, setFilterLantai] = useState<number | ''>('')
+
+  // ✅ Fetch tenant_id saat mount
+  useEffect(() => {
+    getTenantId(supabase).then(tid => { if (tid) setTenantId(tid) })
+  }, [supabase])
 
   const fetchKamar = useCallback(async () => {
     const { data } = await supabase.from('kamar').select('*').order('lantai').order('nomor_kamar')
@@ -122,13 +132,13 @@ function TabKamar() {
   // ── Tambah satu kamar ──────────────────────────────────────
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
+    if (!tenantId) { flash('Session tidak valid, coba refresh halaman.', 'error'); return }
     setSaving(true)
     setError('')
 
     const nomor = addForm.nomor_kamar.trim().toUpperCase()
     if (!nomor) { flash('Nomor kamar wajib diisi.', 'error'); setSaving(false); return }
 
-    // Cek duplikat
     const exists = kamarList.some(k => k.nomor_kamar === nomor)
     if (exists) { flash(`Kamar ${nomor} sudah ada.`, 'error'); setSaving(false); return }
 
@@ -137,6 +147,7 @@ function TabKamar() {
       lantai:      addForm.lantai,
       tipe:        addForm.tipe,
       catatan:     addForm.catatan || null,
+      tenant_id:   tenantId,   // ✅ wajib ada
     })
 
     if (err) flash(err.message, 'error')
@@ -151,21 +162,25 @@ function TabKamar() {
 
   // ── Tambah batch ───────────────────────────────────────────
   async function handleBatch() {
+    if (!tenantId) { flash('Session tidak valid, coba refresh halaman.', 'error'); return }
     if (batchDari > batchSampai) { flash('Angka awal harus ≤ angka akhir.', 'error'); return }
     if (batchSampai - batchDari > 49) { flash('Maksimal 50 kamar sekaligus.', 'error'); return }
 
     setSaving(true)
     const prefix = batchPrefix.trim().toUpperCase()
 
-    // Generate nomor kamar: prefix + lantai + urutan (contoh: 101-110, atau A101-A110)
     const newKamar = []
     for (let i = batchDari; i <= batchSampai; i++) {
       const nomor = prefix
         ? `${prefix}${batchLantai}${String(i).padStart(2, '0')}`
         : `${batchLantai}${String(i).padStart(2, '0')}`
-      // Skip yang sudah ada
       if (!kamarList.some(k => k.nomor_kamar === nomor)) {
-        newKamar.push({ nomor_kamar: nomor, lantai: batchLantai, tipe: batchTipe })
+        newKamar.push({
+          nomor_kamar: nomor,
+          lantai:      batchLantai,
+          tipe:        batchTipe,
+          tenant_id:   tenantId,   // ✅ wajib ada
+        })
       }
     }
 
@@ -216,7 +231,6 @@ function TabKamar() {
   const lantaiList = [...new Set(kamarList.map(k => k.lantai))].sort()
   const filtered   = filterLantai === '' ? kamarList : kamarList.filter(k => k.lantai === filterLantai)
 
-  // Preview nomor kamar batch
   const batchPreview = (() => {
     const prefix = batchPrefix.trim().toUpperCase()
     const arr = []
@@ -231,7 +245,6 @@ function TabKamar() {
 
   return (
     <div>
-      {/* Feedback */}
       {(success || error) && (
         <div style={{
           background: success ? 'var(--green-light)' : 'var(--red-light)',
@@ -245,7 +258,6 @@ function TabKamar() {
         </div>
       )}
 
-      {/* Toolbar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <select
           value={filterLantai}
@@ -280,15 +292,10 @@ function TabKamar() {
       {showAddForm && (
         <div className="card" style={{ marginBottom: 16, borderColor: 'var(--accent-mid)', background: 'var(--accent-light)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 8, background: 'var(--accent)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Plus size={14} color="#fff" />
             </div>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>
-              Tambah Kamar Baru
-            </span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>Tambah Kamar Baru</span>
           </div>
           <form onSubmit={handleAdd}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -330,10 +337,8 @@ function TabKamar() {
               />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn-secondary" onClick={() => setShowAddForm(false)}>
-                Batal
-              </button>
-              <button type="submit" className="btn-primary" disabled={saving}>
+              <button type="button" className="btn-secondary" onClick={() => setShowAddForm(false)}>Batal</button>
+              <button type="submit" className="btn-primary" disabled={saving || !tenantId}>
                 {saving ? <><span className="loader" style={{ width: 13, height: 13 }} /> Menyimpan...</> : <><Check size={13} /> Simpan Kamar</>}
               </button>
             </div>
@@ -345,56 +350,27 @@ function TabKamar() {
       {showBatch && (
         <div className="card" style={{ marginBottom: 16, borderColor: '#c4b5fd', background: '#faf5ff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 8, background: '#7c3aed',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <PackagePlus size={14} color="#fff" />
             </div>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>
-              Tambah Kamar Sekaligus (Batch)
-            </span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>Tambah Kamar Sekaligus (Batch)</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
-              <label className="field-label">
-                <Layers size={10} style={{ display: 'inline', marginRight: 3 }} />
-                Lantai
-              </label>
-              <input
-                type="number" min={1} max={99}
-                value={batchLantai}
-                onChange={e => setBatchLantai(Number(e.target.value))}
-              />
+              <label className="field-label"><Layers size={10} style={{ display: 'inline', marginRight: 3 }} />Lantai</label>
+              <input type="number" min={1} max={99} value={batchLantai} onChange={e => setBatchLantai(Number(e.target.value))} />
             </div>
             <div>
-              <label className="field-label">
-                <Hash size={10} style={{ display: 'inline', marginRight: 3 }} />
-                Nomor Dari
-              </label>
-              <input
-                type="number" min={1}
-                value={batchDari}
-                onChange={e => setBatchDari(Number(e.target.value))}
-              />
+              <label className="field-label"><Hash size={10} style={{ display: 'inline', marginRight: 3 }} />Nomor Dari</label>
+              <input type="number" min={1} value={batchDari} onChange={e => setBatchDari(Number(e.target.value))} />
             </div>
             <div>
-              <label className="field-label">
-                <Hash size={10} style={{ display: 'inline', marginRight: 3 }} />
-                Nomor Sampai
-              </label>
-              <input
-                type="number" min={1}
-                value={batchSampai}
-                onChange={e => setBatchSampai(Number(e.target.value))}
-              />
+              <label className="field-label"><Hash size={10} style={{ display: 'inline', marginRight: 3 }} />Nomor Sampai</label>
+              <input type="number" min={1} value={batchSampai} onChange={e => setBatchSampai(Number(e.target.value))} />
             </div>
             <div>
-              <label className="field-label">
-                <Tag size={10} style={{ display: 'inline', marginRight: 3 }} />
-                Prefix (opsional)
-              </label>
+              <label className="field-label"><Tag size={10} style={{ display: 'inline', marginRight: 3 }} />Prefix (opsional)</label>
               <input
                 placeholder="cth: A, B, VIP"
                 value={batchPrefix}
@@ -409,8 +385,7 @@ function TabKamar() {
             <div style={{ display: 'flex', gap: 8 }}>
               {['standard', 'deluxe', 'suite', 'vip'].map(t => (
                 <button
-                  key={t}
-                  type="button"
+                  key={t} type="button"
                   onClick={() => setBatchTipe(t)}
                   style={{
                     padding: '6px 14px', borderRadius: 7, border: '1px solid',
@@ -428,12 +403,7 @@ function TabKamar() {
             </div>
           </div>
 
-          {/* Preview */}
-          <div style={{
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            borderRadius: 8, padding: '10px 14px', marginBottom: 14,
-          }}>
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
             <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 6, letterSpacing: '0.06em' }}>
               PREVIEW NOMOR KAMAR — {batchSampai - batchDari + 1} kamar
             </div>
@@ -455,7 +425,7 @@ function TabKamar() {
             <button
               className="btn-primary"
               onClick={handleBatch}
-              disabled={saving}
+              disabled={saving || !tenantId}
               style={{ background: '#7c3aed' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#6d28d9')}
               onMouseLeave={e => (e.currentTarget.style.background = '#7c3aed')}
@@ -471,13 +441,8 @@ function TabKamar() {
 
       {/* ── Tabel kamar ───────────────────────────────────── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {/* Summary strip per lantai */}
         {!loading && (
-          <div style={{
-            display: 'flex', gap: 0,
-            borderBottom: '1px solid var(--border)',
-            overflowX: 'auto',
-          }}>
+          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
             {lantaiList.map(l => {
               const total  = kamarList.filter(k => k.lantai === l).length
               const kosong = kamarList.filter(k => k.lantai === l && k.status === 'kosong').length
@@ -489,16 +454,14 @@ function TabKamar() {
                     flex: '0 0 auto', padding: '10px 20px',
                     border: 'none', borderRight: '1px solid var(--border)',
                     background: filterLantai === l ? 'var(--accent-light)' : 'var(--bg-secondary)',
-                    cursor: 'pointer', transition: 'background 0.15s',
-                    textAlign: 'left',
+                    cursor: 'pointer', transition: 'background 0.15s', textAlign: 'left',
                   }}
                 >
                   <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: filterLantai === l ? 'var(--accent)' : 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 2 }}>
                     LANTAI {l}
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
-                    {total} kamar ·{' '}
-                    <span style={{ color: 'var(--green)' }}>{kosong} kosong</span>
+                    {total} kamar · <span style={{ color: 'var(--green)' }}>{kosong} kosong</span>
                   </div>
                 </button>
               )
@@ -538,8 +501,6 @@ function TabKamar() {
                     <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
                       {String(i + 1).padStart(2, '0')}
                     </td>
-
-                    {/* Nomor kamar */}
                     <td>
                       {isEditing ? (
                         <input
@@ -553,8 +514,6 @@ function TabKamar() {
                         </span>
                       )}
                     </td>
-
-                    {/* Lantai */}
                     <td>
                       {isEditing ? (
                         <input
@@ -567,8 +526,6 @@ function TabKamar() {
                         <span style={{ color: 'var(--text-secondary)' }}>{kamar.lantai}</span>
                       )}
                     </td>
-
-                    {/* Tipe */}
                     <td>
                       {isEditing ? (
                         <select
@@ -584,8 +541,7 @@ function TabKamar() {
                       ) : (
                         <span style={{
                           fontSize: 11, fontFamily: 'var(--font-mono)',
-                          padding: '2px 8px', borderRadius: 20,
-                          textTransform: 'capitalize',
+                          padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize',
                           background: kamar.tipe === 'vip' ? '#fef9c3' : kamar.tipe === 'suite' ? '#ede9fe' : kamar.tipe === 'deluxe' ? '#e0f2fe' : 'var(--bg-secondary)',
                           color: kamar.tipe === 'vip' ? '#854d0e' : kamar.tipe === 'suite' ? '#6d28d9' : kamar.tipe === 'deluxe' ? '#0369a1' : 'var(--text-muted)',
                           border: '1px solid',
@@ -595,15 +551,9 @@ function TabKamar() {
                         </span>
                       )}
                     </td>
-
-                    {/* Status */}
                     <td>
-                      <span className={`badge badge-${kamar.status}`}>
-                        {kamar.status}
-                      </span>
+                      <span className={`badge badge-${kamar.status}`}>{kamar.status}</span>
                     </td>
-
-                    {/* Catatan */}
                     <td>
                       {isEditing ? (
                         <input
@@ -618,29 +568,19 @@ function TabKamar() {
                         </span>
                       )}
                     </td>
-
-                    {/* Aksi */}
                     <td>
                       {isEditing ? (
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
                             onClick={() => saveEdit(kamar.id)}
                             disabled={saving}
-                            style={{
-                              padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)',
-                              background: 'var(--green-light)', color: 'var(--green)',
-                              cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4,
-                            }}
+                            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)', background: 'var(--green-light)', color: 'var(--green)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                           >
                             <Check size={12} /> Simpan
                           </button>
                           <button
                             onClick={() => setEditId(null)}
-                            style={{
-                              padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)',
-                              background: 'transparent', color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                            }}
+                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
                           >
                             <X size={12} />
                           </button>
@@ -649,11 +589,7 @@ function TabKamar() {
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
                             onClick={() => startEdit(kamar)}
-                            style={{
-                              padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)',
-                              background: 'transparent', color: 'var(--text-muted)',
-                              cursor: 'pointer', transition: 'all 0.15s',
-                            }}
+                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s' }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
                             title="Edit"
@@ -690,35 +626,30 @@ function TabKamar() {
   )
 }
 
-// Tambahkan import di atas: import { Image as ImageIcon } from 'lucide-react'
-
+// ═══════════════════════════════════════════════════════════════
+// TAB MEDIA
+// ═══════════════════════════════════════════════════════════════
 function TabMedia() {
   const supabaseRef = useRef(createClient())
   const supabase    = supabaseRef.current
 
-  const [kamarList,   setKamarList]   = useState<Kamar[]>([])
-  const [images,      setImages]      = useState<any[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [uploading,   setUploading]   = useState(false)
-  const [error,       setError]       = useState('')
-  const [success,     setSuccess]     = useState('')
+  const [kamarList,       setKamarList]       = useState<Kamar[]>([])
+  const [images,          setImages]          = useState<any[]>([])
+  const [loading,         setLoading]         = useState(true)
+  const [uploading,       setUploading]       = useState(false)
+  const [error,           setError]           = useState('')
+  const [success,         setSuccess]         = useState('')
   const [selectedKamarId, setSelectedKamarId] = useState<string>('')
   const [logoUploading,   setLogoUploading]   = useState(false)
-  const [tenantId,    setTenantId]    = useState<string>('')
-  const [logoUrl,     setLogoUrl]     = useState<string>('')
-  const fileInputRef  = useRef<HTMLInputElement>(null)
-  const logoInputRef  = useRef<HTMLInputElement>(null)
+  const [tenantId,        setTenantId]        = useState<string>('')
+  const [logoUrl,         setLogoUrl]         = useState<string>('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-
-    const { data: userData } = await supabase
-      .from('users').select('tenant_id').eq('id', user.id).single()
-    if (!userData) { setLoading(false); return }
-
-    const tid = userData.tenant_id
+    const tid = await getTenantId(supabase)
+    if (!tid) { setLoading(false); return }
     setTenantId(tid)
 
     const [{ data: kamar }, { data: imgs }, { data: theme }] = await Promise.all([
@@ -727,11 +658,14 @@ function TabMedia() {
       supabase.from('tenant_theme').select('logo_url').eq('tenant_id', tid).single(),
     ])
 
-    if (kamar) { setKamarList(kamar); if (!selectedKamarId && kamar.length > 0) setSelectedKamarId(kamar[0].id) }
-    if (imgs)  setImages(imgs)
+    if (kamar) {
+      setKamarList(kamar)
+      setSelectedKamarId(prev => prev || (kamar.length > 0 ? kamar[0].id : ''))
+    }
+    if (imgs)           setImages(imgs)
     if (theme?.logo_url) setLogoUrl(theme.logo_url)
     setLoading(false)
-  }, [supabase, selectedKamarId])
+  }, [supabase])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -740,11 +674,9 @@ function TabMedia() {
     else                    { setError(msg);   setTimeout(() => setError(''), 4000) }
   }
 
-  // ── Upload logo ──────────────────────────────────────────────────────
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !tenantId) return
-
     if (file.size > 2 * 1024 * 1024) { flash('Logo maksimal 2MB.', 'error'); return }
     if (!['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.type)) {
       flash('Format logo: PNG, JPG, SVG, atau WEBP.', 'error'); return
@@ -760,24 +692,19 @@ function TabMedia() {
 
     if (upErr) { flash(upErr.message, 'error'); setLogoUploading(false); return }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('tenant-media').getPublicUrl(path)
+    const { data: { publicUrl } } = supabase.storage.from('tenant-media').getPublicUrl(path)
 
-    await supabase.from('tenant_theme')
-      .update({ logo_url: publicUrl })
-      .eq('tenant_id', tenantId)
+    await supabase.from('tenant_theme').update({ logo_url: publicUrl }).eq('tenant_id', tenantId)
 
     setLogoUrl(publicUrl)
     flash('Logo berhasil diupload.')
     setLogoUploading(false)
   }
 
-  // ── Upload foto kamar (multi-file) ───────────────────────────────────
   async function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0 || !selectedKamarId || !tenantId) return
 
-    // Validasi
     for (const f of files) {
       if (f.size > 5 * 1024 * 1024) { flash(`${f.name} melebihi 5MB.`, 'error'); return }
       if (!f.type.startsWith('image/')) { flash(`${f.name} bukan gambar.`, 'error'); return }
@@ -797,8 +724,7 @@ function TabMedia() {
 
       if (upErr) { flash(`Gagal upload ${file.name}: ${upErr.message}`, 'error'); continue }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('tenant-media').getPublicUrl(path)
+      const { data: { publicUrl } } = supabase.storage.from('tenant-media').getPublicUrl(path)
 
       await supabase.from('kamar_images').insert({
         kamar_id:     selectedKamarId,
@@ -806,7 +732,7 @@ function TabMedia() {
         url:          publicUrl,
         storage_path: path,
         urutan:       existingCount + i,
-        is_cover:     existingCount === 0 && i === 0, // foto pertama jadi cover otomatis
+        is_cover:     existingCount === 0 && i === 0,
       })
     }
 
@@ -816,22 +742,17 @@ function TabMedia() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // ── Set cover ────────────────────────────────────────────────────────
   async function handleSetCover(imgId: string) {
-    // Reset semua is_cover di kamar ini dulu
     const kamarImgs = images.filter(img => img.kamar_id === selectedKamarId)
     await Promise.all(kamarImgs.map(img =>
       supabase.from('kamar_images').update({ is_cover: img.id === imgId }).eq('id', img.id)
     ))
     setImages(prev => prev.map(img =>
-      img.kamar_id === selectedKamarId
-        ? { ...img, is_cover: img.id === imgId }
-        : img
+      img.kamar_id === selectedKamarId ? { ...img, is_cover: img.id === imgId } : img
     ))
     flash('Foto cover diperbarui.')
   }
 
-  // ── Hapus foto ───────────────────────────────────────────────────────
   async function handleDeleteImg(img: any) {
     if (!confirm('Hapus foto ini?')) return
     await supabase.storage.from('tenant-media').remove([img.storage_path])
@@ -853,7 +774,6 @@ function TabMedia() {
 
   return (
     <div>
-      {/* Feedback */}
       {(success || error) && (
         <div style={{
           background: success ? 'var(--green-light)' : 'var(--red-light)',
@@ -866,7 +786,7 @@ function TabMedia() {
         </div>
       )}
 
-      {/* ── Section: Logo ── */}
+      {/* Logo */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -874,13 +794,10 @@ function TabMedia() {
           </div>
           <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Logo Penginapan</span>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          {/* Preview logo */}
           <div style={{
             width: 100, height: 80, borderRadius: 10,
-            border: '1.5px dashed var(--border)',
-            background: 'var(--bg-secondary)',
+            border: '1.5px dashed var(--border)', background: 'var(--bg-secondary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             overflow: 'hidden', flexShrink: 0,
           }}>
@@ -889,19 +806,12 @@ function TabMedia() {
               : <span style={{ fontSize: 24, color: 'var(--text-muted)' }}>🏠</span>
             }
           </div>
-
           <div>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>
               Format: PNG, JPG, SVG, WEBP. Maks 2MB.<br />
               Rekomendasi: transparan background, min 200×80px.
             </p>
-            <input
-              ref={logoInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handleLogoUpload}
-            />
+            <input ref={logoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} />
             <button
               className="btn-primary"
               onClick={() => logoInputRef.current?.click()}
@@ -917,7 +827,7 @@ function TabMedia() {
         </div>
       </div>
 
-      {/* ── Section: Foto Kamar ── */}
+      {/* Foto Kamar */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -926,25 +836,16 @@ function TabMedia() {
             </div>
             <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Foto Kamar</span>
           </div>
-
-          {/* Pilih kamar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Kamar:</label>
-            <select
-              value={selectedKamarId}
-              onChange={e => setSelectedKamarId(e.target.value)}
-              style={{ width: 140 }}
-            >
+            <select value={selectedKamarId} onChange={e => setSelectedKamarId(e.target.value)} style={{ width: 140 }}>
               {kamarList.map(k => (
-                <option key={k.id} value={k.id}>
-                  {k.nomor_kamar} (Lt.{k.lantai})
-                </option>
+                <option key={k.id} value={k.id}>{k.nomor_kamar} (Lt.{k.lantai})</option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Drop zone upload */}
         <div
           style={{
             border: '2px dashed var(--border)', borderRadius: 10,
@@ -955,7 +856,7 @@ function TabMedia() {
           onClick={() => fileInputRef.current?.click()}
           onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent)' }}
           onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
-          onDrop={async e => {
+          onDrop={e => {
             e.preventDefault()
             e.currentTarget.style.borderColor = 'var(--border)'
             const fakeEvt = { target: { files: e.dataTransfer.files } } as any
@@ -971,78 +872,43 @@ function TabMedia() {
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
             Mendukung beberapa file sekaligus · JPG, PNG, WEBP · Maks 5MB per foto
           </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            style={{ display: 'none' }}
-            onChange={handleFotoUpload}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFotoUpload} />
         </div>
 
-        {/* Grid foto yang sudah diupload */}
         {selectedKamarImages.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: 13 }}>
             Belum ada foto untuk kamar ini. Upload di atas.
           </div>
         ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-            gap: 12,
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
             {selectedKamarImages.map(img => (
               <div key={img.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden' }}>
-                <img
-                  src={img.url}
-                  alt=""
-                  style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', display: 'block' }}
-                />
-
-                {/* Badge cover */}
+                <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', display: 'block' }} />
                 {img.is_cover && (
                   <div style={{
                     position: 'absolute', top: 6, left: 6,
                     background: 'var(--accent)', color: '#fff',
-                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10,
-                    letterSpacing: '0.06em',
+                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, letterSpacing: '0.06em',
                   }}>
                     COVER
                   </div>
                 )}
-
-                {/* Overlay aksi */}
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  background: 'rgba(0,0,0,0)', transition: 'background 0.2s',
-                  display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-                  gap: 6, padding: 8,
-                }}
+                <div
+                  style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.2s', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, padding: 8 }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.45)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}
                 >
                   {!img.is_cover && (
                     <button
                       onClick={() => handleSetCover(img.id)}
-                      title="Jadikan cover"
-                      style={{
-                        background: 'rgba(255,255,255,0.9)', border: 'none',
-                        borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
-                        fontSize: 11, fontWeight: 600, color: '#374151',
-                      }}
+                      style={{ background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#374151' }}
                     >
                       Cover
                     </button>
                   )}
                   <button
                     onClick={() => handleDeleteImg(img)}
-                    title="Hapus foto"
-                    style={{
-                      background: 'rgba(239,68,68,0.9)', border: 'none',
-                      borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
-                      color: '#fff', fontSize: 11,
-                    }}
+                    style={{ background: 'rgba(239,68,68,0.9)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#fff', fontSize: 11 }}
                   >
                     Hapus
                   </button>
@@ -1068,6 +934,7 @@ function TabHarga() {
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState('')
   const [success,   setSuccess]   = useState('')
+  const [tenantId,  setTenantId]  = useState<string>('')   // ✅ tambah state
   const [editId,    setEditId]    = useState<string | null>(null)
   const [editForm,  setEditForm]  = useState<Partial<HargaRow>>({})
   const [showAdd,   setShowAdd]   = useState(false)
@@ -1075,6 +942,11 @@ function TabHarga() {
     lantai: 1, tipe: 'standard',
     harga_harian: '', harga_mingguan: '', harga_bulanan: '',
   })
+
+  // ✅ Fetch tenant_id saat mount
+  useEffect(() => {
+    getTenantId(supabase).then(tid => { if (tid) setTenantId(tid) })
+  }, [supabase])
 
   const fetchHarga = useCallback(async () => {
     const { data } = await supabase.from('harga').select('*').order('lantai').order('tipe')
@@ -1091,19 +963,20 @@ function TabHarga() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
+    if (!tenantId) { flash('Session tidak valid, coba refresh halaman.', 'error'); return }
     if (!addForm.harga_bulanan) { flash('Harga bulanan wajib diisi.', 'error'); return }
 
-    // Cek duplikat lantai+tipe
     const exists = hargaList.some(h => h.lantai === addForm.lantai && h.tipe === addForm.tipe)
     if (exists) { flash(`Harga untuk lantai ${addForm.lantai} tipe ${addForm.tipe} sudah ada.`, 'error'); return }
 
     setSaving(true)
     const { error: err } = await supabase.from('harga').insert({
-      lantai:          addForm.lantai,
-      tipe:            addForm.tipe,
-      harga_harian:    addForm.harga_harian   ? Number(addForm.harga_harian)   : null,
-      harga_mingguan:  addForm.harga_mingguan ? Number(addForm.harga_mingguan) : null,
-      harga_bulanan:   Number(addForm.harga_bulanan),
+      lantai:         addForm.lantai,
+      tipe:           addForm.tipe,
+      harga_harian:   addForm.harga_harian   ? Number(addForm.harga_harian)   : null,
+      harga_mingguan: addForm.harga_mingguan ? Number(addForm.harga_mingguan) : null,
+      harga_bulanan:  Number(addForm.harga_bulanan),
+      tenant_id:      tenantId,   // ✅ wajib ada
     })
     if (err) flash(err.message, 'error')
     else { flash('Harga berhasil disimpan.'); setShowAdd(false); fetchHarga() }
@@ -1145,17 +1018,12 @@ function TabHarga() {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button
-          className="btn-primary"
-          onClick={() => setShowAdd(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7 }}
-        >
+        <button className="btn-primary" onClick={() => setShowAdd(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <Plus size={14} strokeWidth={2.5} />
           Tambah Harga
         </button>
       </div>
 
-      {/* Form tambah harga */}
       {showAdd && (
         <div className="card" style={{ marginBottom: 16, borderColor: 'var(--accent-mid)', background: 'var(--accent-light)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -1184,26 +1052,23 @@ function TabHarga() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
               <div>
                 <label className="field-label">Harga Harian</label>
-                <input type="number" min={0} placeholder="cth: 100000"
-                  value={addForm.harga_harian}
+                <input type="number" min={0} placeholder="cth: 100000" value={addForm.harga_harian}
                   onChange={e => setAddForm({ ...addForm, harga_harian: e.target.value })} />
               </div>
               <div>
                 <label className="field-label">Harga Mingguan</label>
-                <input type="number" min={0} placeholder="cth: 600000"
-                  value={addForm.harga_mingguan}
+                <input type="number" min={0} placeholder="cth: 600000" value={addForm.harga_mingguan}
                   onChange={e => setAddForm({ ...addForm, harga_mingguan: e.target.value })} />
               </div>
               <div>
                 <label className="field-label">Harga Bulanan *</label>
-                <input type="number" min={0} placeholder="cth: 1500000" required
-                  value={addForm.harga_bulanan}
+                <input type="number" min={0} placeholder="cth: 1500000" required value={addForm.harga_bulanan}
                   onChange={e => setAddForm({ ...addForm, harga_bulanan: e.target.value })} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>Batal</button>
-              <button type="submit" className="btn-primary" disabled={saving}>
+              <button type="submit" className="btn-primary" disabled={saving || !tenantId}>
                 {saving ? <><span className="loader" style={{ width: 13, height: 13 }} /> Menyimpan...</> : <><Check size={13} /> Simpan Harga</>}
               </button>
             </div>
@@ -1211,7 +1076,6 @@ function TabHarga() {
         </div>
       )}
 
-      {/* Tabel harga */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60, gap: 10 }}>
@@ -1241,13 +1105,10 @@ function TabHarga() {
                 const isEditing = editId === h.id
                 return (
                   <tr key={h.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {h.lantai}
-                    </td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>{h.lantai}</td>
                     <td>
                       <span style={{
-                        fontSize: 11, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20,
-                        textTransform: 'capitalize',
+                        fontSize: 11, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize',
                         background: h.tipe === 'vip' ? '#fef9c3' : h.tipe === 'suite' ? '#ede9fe' : h.tipe === 'deluxe' ? '#e0f2fe' : 'var(--bg-secondary)',
                         color: h.tipe === 'vip' ? '#854d0e' : h.tipe === 'suite' ? '#6d28d9' : h.tipe === 'deluxe' ? '#0369a1' : 'var(--text-muted)',
                         border: '1px solid',
@@ -1256,7 +1117,6 @@ function TabHarga() {
                         {h.tipe}
                       </span>
                     </td>
-
                     {isEditing ? (
                       <>
                         <td><input type="number" min={0} value={editForm.harga_harian ?? ''} onChange={e => setEditForm({ ...editForm, harga_harian: Number(e.target.value) })} style={{ padding: '5px 8px' }} /></td>
@@ -1276,21 +1136,15 @@ function TabHarga() {
                         </td>
                       </>
                     )}
-
                     <td>
                       {isEditing ? (
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            onClick={() => saveEdit(h.id)}
-                            disabled={saving}
-                            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)', background: 'var(--green-light)', color: 'var(--green)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
-                          >
+                          <button onClick={() => saveEdit(h.id)} disabled={saving}
+                            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)', background: 'var(--green-light)', color: 'var(--green)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <Check size={12} /> Simpan
                           </button>
-                          <button
-                            onClick={() => setEditId(null)}
-                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
-                          >
+                          <button onClick={() => setEditId(null)}
+                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
                             <X size={12} />
                           </button>
                         </div>
