@@ -1,14 +1,14 @@
-//app/(tenant)/layout.tsx
-
-import { headers }         from 'next/headers'
 import { notFound }        from 'next/navigation'
 import { getTenantBySlug } from '@/lib/tenant'
 import type { Metadata }   from 'next'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const headersList = await headers()
-  const slug = headersList.get('x-tenant-slug')
-  if (!slug) return { title: 'Tidak Ditemukan' }
+interface Props {
+  children: React.ReactNode
+  params: Promise<{ slug: string }>
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
 
   const config = await getTenantBySlug(slug)
   if (!config) return { title: 'Tidak Ditemukan' }
@@ -23,10 +23,8 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function TenantLayout({ children }: { children: React.ReactNode }) {
-  const headersList = await headers()
-  const slug = headersList.get('x-tenant-slug')
-  if (!slug) notFound()
+export default async function TenantLayout({ children, params }: Props) {
+  const { slug } = await params
 
   const config = await getTenantBySlug(slug)
   if (!config) notFound()

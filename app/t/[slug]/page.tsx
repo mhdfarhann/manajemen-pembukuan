@@ -1,15 +1,13 @@
-//app/(tenant)/page.tsx
-
-import { headers }     from 'next/headers'
 import { notFound }    from 'next/navigation'
 import { getTenantBySlug, getKamarByTenant, getHargaByTenant } from '@/lib/tenant'
 import TemplateElegant from '@/components/landing-templates/template-elegant'
 
-export default async function TenantPage() {
-  const headersList = await headers()
-  const slug = headersList.get('x-tenant-slug')
+interface Props {
+  params: Promise<{ slug: string }>
+}
 
-  if (!slug) notFound()
+export default async function TenantPage({ params }: Props) {
+  const { slug } = await params
 
   const config = await getTenantBySlug(slug)
   if (!config) notFound()
