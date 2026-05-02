@@ -43,26 +43,28 @@ export default function DetailKamarModal({ kamar, onClose }: Props) {
     if (!confirm(`Checkout ${booking.nama_tamu} dari kamar ${kamar.nomor_kamar}?\n\nKamar akan otomatis kosong.`)) return
     setDeleting(true)
 
-    const { error: histErr } = await supabase
-      .from('booking_history')
-      .insert({
-        booking_id:   booking.id,
-        kamar_id:     booking.kamar_id,
-        nomor_kamar:  kamar.nomor_kamar,
-        lantai:       kamar.lantai,
-        nama_tamu:    booking.nama_tamu,
-        nik:          booking.nik,
-        nomor_hp:     booking.nomor_hp,
-        durasi:       booking.durasi,
-        tanggal_in:   booking.tanggal_in,
-        tanggal_out:  booking.tanggal_out,
-        harga_total:  booking.harga_total,
-        status_bayar: booking.status_bayar,
-        jumlah_dp:    booking.jumlah_dp,
-        catatan:      booking.catatan,
-        created_at:   booking.created_at,
-        checkout_at:  new Date().toISOString(),
-      })
+    // Ambil tenant_id dari booking yang sedang aktif
+const { error: histErr } = await supabase
+  .from('booking_history')
+  .insert({
+    booking_id:   booking.id,
+    kamar_id:     booking.kamar_id,
+    nomor_kamar:  kamar.nomor_kamar,
+    lantai:       kamar.lantai,
+    nama_tamu:    booking.nama_tamu,
+    nik:          booking.nik,
+    nomor_hp:     booking.nomor_hp,
+    durasi:       booking.durasi,
+    tanggal_in:   booking.tanggal_in,
+    tanggal_out:  booking.tanggal_out,
+    harga_total:  booking.harga_total,
+    status_bayar: booking.status_bayar,
+    jumlah_dp:    booking.jumlah_dp,
+    catatan:      booking.catatan,
+    created_at:   booking.created_at,
+    checkout_at:  new Date().toISOString(),
+    tenant_id:    booking.tenant_id,   // ← tambahkan ini
+  })
 
     if (histErr) {
       alert('Gagal menyimpan ke history: ' + histErr.message)
