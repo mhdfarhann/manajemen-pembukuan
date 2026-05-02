@@ -27,7 +27,11 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🔥 ROUTE HIT')
+  console.log('SERVICE KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20))
+  console.log('SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
   const body = await request.json()
+  console.log('BODY:', JSON.stringify(body))
   const {
     tenant_id, kamar_id, nama_tamu, nik,
     nomor_hp, durasi, tanggal_in, catatan,
