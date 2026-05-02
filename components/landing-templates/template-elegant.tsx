@@ -447,15 +447,20 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
 
       {/* Logo / Nama */}
-      <a href="#" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+      {/* Logo / Nama */}
+      <a href="#" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
         {theme.logo_url ? (
           <img
             src={theme.logo_url}
             alt={tenant.nama}
-            style={{ height: 44, maxWidth: 180, objectFit: 'contain' }}
+            style={{ height: 40, maxWidth: 140, objectFit: 'contain' }}
           />
         ) : (
-          <span style={{ fontFamily: fHeading, fontWeight: 700, fontSize: 18, color: primary }}>
+          <span style={{
+            fontFamily: fHeading, fontWeight: 700,
+            fontSize: 'clamp(14px, 4vw, 18px)',  // ← responsif
+            color: primary, lineHeight: 1.2,
+          }}>
             {tenant.nama}
           </span>
         )}
