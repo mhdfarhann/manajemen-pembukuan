@@ -40,8 +40,6 @@ const navLinkStyle: React.CSSProperties = {
   fontWeight: 500,
 }
 
-
-const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 // ── helper sub-components ────────────────────────────────────────────────────
 
 function SectionHeader({
@@ -376,6 +374,7 @@ function imgNavBtn(side: 'left' | 'right'): React.CSSProperties {
 export default function TemplateElegant({ tenant, theme, kamarList, hargaList, imageList }: Props) {
   const [selectedKamar, setSelectedKamar] = useState<Kamar | null>(null)
   const [showBooking,   setShowBooking]   = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Hero slideshow
   const heroImages = imageList.length > 0
