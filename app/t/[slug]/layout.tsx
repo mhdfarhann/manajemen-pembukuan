@@ -1,4 +1,4 @@
-//t/[slug]/layout.tsx
+// app/t/[slug]/layout.tsx
 
 import { notFound }        from 'next/navigation'
 import { getTenantBySlug } from '@/lib/tenant'
@@ -16,23 +16,21 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     if (!config) return { title: 'Tidak Ditemukan' }
 
     const { tenant, theme } = config
-    const logoUrl      = theme.logo_url      ?? null
-    const heroImageUrl = theme.hero_image_url ?? null
 
     return {
       title:       tenant.nama,
       description: tenant.tagline ?? `Reservasi kamar di ${tenant.nama}`,
-      ...(heroImageUrl && {
+      ...(theme.hero_image_url && {
         openGraph: {
           title:  tenant.nama,
-          images: [heroImageUrl],
+          images: [theme.hero_image_url],
         },
       }),
-      ...(logoUrl && {
+      ...(theme.logo_url && {
         icons: {
-          icon:     logoUrl,
-          shortcut: logoUrl,
-          apple:    logoUrl,
+          icon:     theme.logo_url,
+          shortcut: theme.logo_url,
+          apple:    theme.logo_url,
         },
       }),
     }
@@ -45,16 +43,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function TenantLayout({ children, params }: Props) {
   try {
     const { slug } = await params
-    console.log('🏗️ TenantLayout start:', slug)
 
     const config = await getTenantBySlug(slug)
-    console.log('🏗️ config:', !!config)
     if (!config) notFound()
 
     const { theme } = config
-    console.log('🏗️ theme.primary_color:', theme.primary_color)
-    console.log('🏗️ theme.font_heading:', theme.font_heading)
-    console.log('🏗️ theme.font_body:', theme.font_body)
 
     const cssVars = `
       --primary:      ${theme.primary_color};
@@ -63,14 +56,12 @@ export default async function TenantLayout({ children, params }: Props) {
       --font-heading: '${theme.font_heading}', Georgia, serif;
       --font-body:    '${theme.font_body}', system-ui, sans-serif;
     `
-    console.log('🏗️ cssVars ok')
 
     const fontQuery = [
       encodeURIComponent(theme.font_heading) + ':wght@400;600;700',
       encodeURIComponent(theme.font_body)    + ':wght@400;500',
     ].join('&family=')
     const fontUrl = `https://fonts.googleapis.com/css2?family=${fontQuery}&display=swap`
-    console.log('🏗️ fontUrl:', fontUrl)
 
     return (
       <>
