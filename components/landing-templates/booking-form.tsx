@@ -104,7 +104,7 @@ export default function BookingForm({
     setLoading(true)
     setErrorMsg(null)
     try {
-      const res = await fetch('/api/booking/publik', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/booking/publik`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
