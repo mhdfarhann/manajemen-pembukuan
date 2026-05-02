@@ -43,36 +43,48 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function TenantLayout({ children, params }: Props) {
-  const { slug } = await params
+  try {
+    const { slug } = await params
+    console.log('🏗️ TenantLayout start:', slug)
 
-  const config = await getTenantBySlug(slug)
-  if (!config) notFound()
+    const config = await getTenantBySlug(slug)
+    console.log('🏗️ config:', !!config)
+    if (!config) notFound()
 
-  const { theme } = config
+    const { theme } = config
+    console.log('🏗️ theme.primary_color:', theme.primary_color)
+    console.log('🏗️ theme.font_heading:', theme.font_heading)
+    console.log('🏗️ theme.font_body:', theme.font_body)
 
-  const cssVars = `
-    --primary:      ${theme.primary_color};
-    --primary-dark: ${darken(theme.primary_color)};
-    --secondary:    ${theme.secondary_color};
-    --font-heading: '${theme.font_heading}', Georgia, serif;
-    --font-body:    '${theme.font_body}', system-ui, sans-serif;
-  `
+    const cssVars = `
+      --primary:      ${theme.primary_color};
+      --primary-dark: ${darken(theme.primary_color)};
+      --secondary:    ${theme.secondary_color};
+      --font-heading: '${theme.font_heading}', Georgia, serif;
+      --font-body:    '${theme.font_body}', system-ui, sans-serif;
+    `
+    console.log('🏗️ cssVars ok')
 
-  const fontQuery = [
-    encodeURIComponent(theme.font_heading) + ':wght@400;600;700',
-    encodeURIComponent(theme.font_body)    + ':wght@400;500',
-  ].join('&family=')
-  const fontUrl = `https://fonts.googleapis.com/css2?family=${fontQuery}&display=swap`
+    const fontQuery = [
+      encodeURIComponent(theme.font_heading) + ':wght@400;600;700',
+      encodeURIComponent(theme.font_body)    + ':wght@400;500',
+    ].join('&family=')
+    const fontUrl = `https://fonts.googleapis.com/css2?family=${fontQuery}&display=swap`
+    console.log('🏗️ fontUrl:', fontUrl)
 
-  return (
-    <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link href={fontUrl} rel="stylesheet" />
-      <style dangerouslySetInnerHTML={{ __html: `:root { ${cssVars} }` }} />
-      {children}
-    </>
-  )
+    return (
+      <>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href={fontUrl} rel="stylesheet" />
+        <style dangerouslySetInnerHTML={{ __html: `:root { ${cssVars} }` }} />
+        {children}
+      </>
+    )
+  } catch (e) {
+    console.error('🔴 TenantLayout crash:', e)
+    throw e
+  }
 }
 
 function darken(hex: string): string {
