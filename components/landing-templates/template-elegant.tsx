@@ -40,6 +40,8 @@ const navLinkStyle: React.CSSProperties = {
   fontWeight: 500,
 }
 
+
+const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 // ── helper sub-components ────────────────────────────────────────────────────
 
 function SectionHeader({
@@ -422,35 +424,115 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
     <div style={{ fontFamily: fBody, color: '#1a1a1a', background: '#fafaf8' }}>
 
       {/* ── NAVBAR ── */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(250,250,248,0.92)', backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(0,0,0,0.06)',
-        padding: '0 5%',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        height: 64,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {theme.logo_url && (
-            <img src={theme.logo_url} alt={tenant.nama} style={{ height: 36, objectFit: 'contain' }} />
-          )}
+<>
+  <style>{`
+    @media (max-width: 768px) {
+      .nav-desktop { display: none !important; }
+      .nav-burger   { display: flex !important; }
+    }
+    @media (min-width: 769px) {
+      .nav-desktop  { display: flex !important; }
+      .nav-burger   { display: none !important; }
+      .nav-mobile   { display: none !important; }
+    }
+  `}</style>
+
+  <nav style={{
+    position: 'sticky', top: 0, zIndex: 50,
+    background: 'rgba(255,255,255,0.96)',
+    backdropFilter: 'blur(12px)',
+    borderBottom: '1px solid rgba(0,0,0,0.06)',
+    padding: '0 5%',
+  }}>
+    {/* Row utama */}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
+
+      {/* Logo / Nama */}
+      <a href="#" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+        {theme.logo_url ? (
+          <img
+            src={theme.logo_url}
+            alt={tenant.nama}
+            style={{ height: 44, maxWidth: 180, objectFit: 'contain' }}
+          />
+        ) : (
           <span style={{ fontFamily: fHeading, fontWeight: 700, fontSize: 18, color: primary }}>
             {tenant.nama}
           </span>
-        </div>
-        <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-          <a href="#kamar"  style={navLinkStyle}>Kamar</a>
-          <a href="#harga"  style={navLinkStyle}>Harga</a>
-          <a href="#kontak" style={navLinkStyle}>Kontak</a>
-          <a href="#kamar" style={{
+        )}
+      </a>
+
+      {/* Desktop links */}
+      <div className="nav-desktop" style={{ gap: 24, alignItems: 'center' }}>
+        {[['#kamar','Kamar'],['#harga','Harga'],['#kontak','Kontak']].map(([href, label]) => (
+          <a key={href} href={href} style={{ textDecoration: 'none', color: '#374151', fontSize: 14, fontWeight: 500 }}
+            onMouseEnter={e => (e.currentTarget.style.color = primary)}
+            onMouseLeave={e => (e.currentTarget.style.color = '#374151')}
+          >{label}</a>
+        ))}
+        <a href="#kamar" style={{
+          background: primary, color: '#fff',
+          padding: '9px 22px', borderRadius: 8,
+          textDecoration: 'none', fontSize: 14, fontWeight: 600,
+        }}>Pesan Sekarang</a>
+      </div>
+
+      {/* Hamburger — mobile only */}
+      <button
+        className="nav-burger"
+        onClick={() => setMobileMenuOpen(v => !v)}
+        style={{
+          display: 'none', flexDirection: 'column', gap: 5,
+          background: 'none', border: 'none', cursor: 'pointer', padding: 8,
+        }}
+        aria-label="Menu"
+      >
+        {[0,1,2].map(i => (
+          <span key={i} style={{
+            display: 'block', width: 22, height: 2,
+            background: mobileMenuOpen ? primary : '#374151',
+            borderRadius: 2, transition: 'all 0.2s',
+            transform: mobileMenuOpen
+              ? i === 0 ? 'rotate(45deg) translate(5px, 5px)'
+              : i === 2 ? 'rotate(-45deg) translate(5px, -5px)' : 'none'
+              : 'none',
+            opacity: mobileMenuOpen && i === 1 ? 0 : 1,
+          }} />
+        ))}
+      </button>
+    </div>
+
+    {/* Mobile menu dropdown */}
+    {mobileMenuOpen && (
+      <div className="nav-mobile" style={{
+        display: 'flex', flexDirection: 'column',
+        borderTop: '1px solid #f3f4f6',
+        padding: '12px 0 20px', gap: 4,
+      }}>
+        {[['#kamar','Kamar'],['#harga','Harga'],['#kontak','Kontak']].map(([href, label]) => (
+          <a key={href} href={href}
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              textDecoration: 'none', color: '#374151',
+              fontSize: 15, fontWeight: 500,
+              padding: '12px 4px', borderBottom: '1px solid #f9fafb',
+            }}
+          >{label}</a>
+        ))}
+        <a href="#kamar"
+          onClick={() => setMobileMenuOpen(false)}
+          style={{
+            display: 'block', marginTop: 8,
             background: primary, color: '#fff',
-            padding: '8px 20px', borderRadius: 8,
-            textDecoration: 'none', fontSize: 14, fontWeight: 500,
-          }}>
-            Pesan Sekarang
-          </a>
-        </div>
-      </nav>
+            padding: '13px 0', borderRadius: 8,
+            textDecoration: 'none', fontSize: 15,
+            fontWeight: 600, textAlign: 'center',
+          }}
+        >Pesan Sekarang</a>
+      </div>
+    )}
+  </nav>
+</>
 
       {/* ── HERO dengan slideshow ── */}
       <section style={{
