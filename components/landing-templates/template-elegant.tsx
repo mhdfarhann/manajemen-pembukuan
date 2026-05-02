@@ -97,11 +97,11 @@ function KamarCard({
         border: '1px solid #e5e7eb', overflow: 'hidden',
         transition: 'box-shadow 0.2s, transform 0.2s',
       }}
-        onMouseEnter={e => {
+        onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
           e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.1)'
           e.currentTarget.style.transform = 'translateY(-2px)'
         }}
-        onMouseLeave={e => {
+        onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
           e.currentTarget.style.boxShadow = 'none'
           e.currentTarget.style.transform = 'translateY(0)'
         }}
@@ -118,14 +118,14 @@ function KamarCard({
                   cursor: 'pointer', transition: 'transform 0.3s',
                 }}
                 onClick={() => setLightbox(true)}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                onMouseEnter={(e: React.MouseEvent<HTMLImageElement>) => (e.currentTarget.style.transform = 'scale(1.03)')}
+                onMouseLeave={(e: React.MouseEvent<HTMLImageElement>) => (e.currentTarget.style.transform = 'scale(1)')}
               />
 
               {allImages.length > 1 && (
                 <>
                   <button
-                    onClick={e => { e.stopPropagation(); setImgIdx(i => (i - 1 + allImages.length) % allImages.length) }}
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setImgIdx(i => (i - 1 + allImages.length) % allImages.length) }}
                     style={{
                       position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
                       width: 28, height: 28, borderRadius: '50%',
@@ -135,7 +135,7 @@ function KamarCard({
                     }}
                   >‹</button>
                   <button
-                    onClick={e => { e.stopPropagation(); setImgIdx(i => (i + 1) % allImages.length) }}
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setImgIdx(i => (i + 1) % allImages.length) }}
                     style={{
                       position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                       width: 28, height: 28, borderRadius: '50%',
@@ -239,8 +239,8 @@ function KamarCard({
               fontSize: 14, fontWeight: 600, cursor: 'pointer',
               transition: 'background 0.2s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = pDark)}
-            onMouseLeave={e => (e.currentTarget.style.background = primary)}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = pDark)}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = primary)}
           >
             Pesan Kamar Ini
           </button>
@@ -276,7 +276,7 @@ function KamarCard({
               maxWidth: '90vw', maxHeight: '80vh',
               objectFit: 'contain', borderRadius: 12,
             }}
-            onClick={e => e.stopPropagation()}
+            onClick={(e: React.MouseEvent<HTMLImageElement>) => e.stopPropagation()}
           />
 
           {allImages[imgIdx]?.caption && (
@@ -288,7 +288,7 @@ function KamarCard({
           {allImages.length > 1 && (
             <div
               style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 16 }}
-              onClick={e => e.stopPropagation()}
+              onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
             >
               <button onClick={() => setImgIdx(i => (i - 1 + allImages.length) % allImages.length)}
                 style={lbBtnStyle}>‹</button>
@@ -306,7 +306,7 @@ function KamarCard({
                 display: 'flex', gap: 8, marginTop: 16, maxWidth: '90vw',
                 overflowX: 'auto', padding: '0 4px',
               }}
-              onClick={e => e.stopPropagation()}
+              onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
             >
               {allImages.map((img, idx) => (
                 <img
@@ -423,120 +423,119 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
     <div style={{ fontFamily: fBody, color: '#1a1a1a', background: '#fafaf8' }}>
 
       {/* ── NAVBAR ── */}
-<>
-  <style>{`
-    @media (max-width: 768px) {
-      .nav-desktop { display: none !important; }
-      .nav-burger   { display: flex !important; }
-    }
-    @media (min-width: 769px) {
-      .nav-desktop  { display: flex !important; }
-      .nav-burger   { display: none !important; }
-      .nav-mobile   { display: none !important; }
-    }
-  `}</style>
+      <>
+        <style>{`
+          @media (max-width: 768px) {
+            .nav-desktop { display: none !important; }
+            .nav-burger   { display: flex !important; }
+          }
+          @media (min-width: 769px) {
+            .nav-desktop  { display: flex !important; }
+            .nav-burger   { display: none !important; }
+            .nav-mobile   { display: none !important; }
+          }
+        `}</style>
 
-  <nav style={{
-    position: 'sticky', top: 0, zIndex: 50,
-    background: 'rgba(255,255,255,0.96)',
-    backdropFilter: 'blur(12px)',
-    borderBottom: '1px solid rgba(0,0,0,0.06)',
-    padding: '0 5%',
-  }}>
-    {/* Row utama */}
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
+        <nav style={{
+          position: 'sticky', top: 0, zIndex: 50,
+          background: 'rgba(255,255,255,0.96)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          padding: '0 5%',
+        }}>
+          {/* Row utama */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
 
-      {/* Logo / Nama */}
-      {/* Logo / Nama */}
-      <a href="#" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-        {theme.logo_url ? (
-          <img
-            src={theme.logo_url}
-            alt={tenant.nama}
-            style={{ height: 40, maxWidth: 140, objectFit: 'contain' }}
-          />
-        ) : (
-          <span style={{
-            fontFamily: fHeading, fontWeight: 700,
-            fontSize: 'clamp(14px, 4vw, 18px)',  // ← responsif
-            color: primary, lineHeight: 1.2,
-          }}>
-            {tenant.nama}
-          </span>
-        )}
-      </a>
+            {/* Logo / Nama */}
+            <a href="#" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+              {theme.logo_url ? (
+                <img
+                  src={theme.logo_url}
+                  alt={tenant.nama}
+                  style={{ height: 40, maxWidth: 140, objectFit: 'contain' }}
+                />
+              ) : (
+                <span style={{
+                  fontFamily: fHeading, fontWeight: 700,
+                  fontSize: 'clamp(14px, 4vw, 18px)',
+                  color: primary, lineHeight: 1.2,
+                }}>
+                  {tenant.nama}
+                </span>
+              )}
+            </a>
 
-      {/* Desktop links */}
-      <div className="nav-desktop" style={{ gap: 24, alignItems: 'center' }}>
-        {[['#kamar','Kamar'],['#harga','Harga'],['#kontak','Kontak']].map(([href, label]) => (
-          <a key={href} href={href} style={{ textDecoration: 'none', color: '#374151', fontSize: 14, fontWeight: 500 }}
-            onMouseEnter={e => (e.currentTarget.style.color = primary)}
-            onMouseLeave={e => (e.currentTarget.style.color = '#374151')}
-          >{label}</a>
-        ))}
-        <a href="#kamar" style={{
-          background: primary, color: '#fff',
-          padding: '9px 22px', borderRadius: 8,
-          textDecoration: 'none', fontSize: 14, fontWeight: 600,
-        }}>Pesan Sekarang</a>
-      </div>
+            {/* Desktop links */}
+            <div className="nav-desktop" style={{ gap: 24, alignItems: 'center' }}>
+              {[['#kamar','Kamar'],['#harga','Harga'],['#kontak','Kontak']].map(([href, label]) => (
+                <a key={href} href={href} style={{ textDecoration: 'none', color: '#374151', fontSize: 14, fontWeight: 500 }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = primary)}
+                  onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = '#374151')}
+                >{label}</a>
+              ))}
+              <a href="#kamar" style={{
+                background: primary, color: '#fff',
+                padding: '9px 22px', borderRadius: 8,
+                textDecoration: 'none', fontSize: 14, fontWeight: 600,
+              }}>Pesan Sekarang</a>
+            </div>
 
-      {/* Hamburger — mobile only */}
-      <button
-        className="nav-burger"
-        onClick={() => setMobileMenuOpen(v => !v)}
-        style={{
-          display: 'none', flexDirection: 'column', gap: 5,
-          background: 'none', border: 'none', cursor: 'pointer', padding: 8,
-        }}
-        aria-label="Menu"
-      >
-        {[0,1,2].map(i => (
-          <span key={i} style={{
-            display: 'block', width: 22, height: 2,
-            background: mobileMenuOpen ? primary : '#374151',
-            borderRadius: 2, transition: 'all 0.2s',
-            transform: mobileMenuOpen
-              ? i === 0 ? 'rotate(45deg) translate(5px, 5px)'
-              : i === 2 ? 'rotate(-45deg) translate(5px, -5px)' : 'none'
-              : 'none',
-            opacity: mobileMenuOpen && i === 1 ? 0 : 1,
-          }} />
-        ))}
-      </button>
-    </div>
+            {/* Hamburger — mobile only */}
+            <button
+              className="nav-burger"
+              onClick={() => setMobileMenuOpen(v => !v)}
+              style={{
+                display: 'none', flexDirection: 'column', gap: 5,
+                background: 'none', border: 'none', cursor: 'pointer', padding: 8,
+              }}
+              aria-label="Menu"
+            >
+              {[0,1,2].map(i => (
+                <span key={i} style={{
+                  display: 'block', width: 22, height: 2,
+                  background: mobileMenuOpen ? primary : '#374151',
+                  borderRadius: 2, transition: 'all 0.2s',
+                  transform: mobileMenuOpen
+                    ? i === 0 ? 'rotate(45deg) translate(5px, 5px)'
+                    : i === 2 ? 'rotate(-45deg) translate(5px, -5px)' : 'none'
+                    : 'none',
+                  opacity: mobileMenuOpen && i === 1 ? 0 : 1,
+                }} />
+              ))}
+            </button>
+          </div>
 
-    {/* Mobile menu dropdown */}
-    {mobileMenuOpen && (
-      <div className="nav-mobile" style={{
-        display: 'flex', flexDirection: 'column',
-        borderTop: '1px solid #f3f4f6',
-        padding: '12px 0 20px', gap: 4,
-      }}>
-        {[['#kamar','Kamar'],['#harga','Harga'],['#kontak','Kontak']].map(([href, label]) => (
-          <a key={href} href={href}
-            onClick={() => setMobileMenuOpen(false)}
-            style={{
-              textDecoration: 'none', color: '#374151',
-              fontSize: 15, fontWeight: 500,
-              padding: '12px 4px', borderBottom: '1px solid #f9fafb',
-            }}
-          >{label}</a>
-        ))}
-        <a href="#kamar"
-          onClick={() => setMobileMenuOpen(false)}
-          style={{
-            display: 'block', marginTop: 8,
-            background: primary, color: '#fff',
-            padding: '13px 0', borderRadius: 8,
-            textDecoration: 'none', fontSize: 15,
-            fontWeight: 600, textAlign: 'center',
-          }}
-        >Pesan Sekarang</a>
-      </div>
-    )}
-  </nav>
-</>
+          {/* Mobile menu dropdown */}
+          {mobileMenuOpen && (
+            <div className="nav-mobile" style={{
+              display: 'flex', flexDirection: 'column',
+              borderTop: '1px solid #f3f4f6',
+              padding: '12px 0 20px', gap: 4,
+            }}>
+              {[['#kamar','Kamar'],['#harga','Harga'],['#kontak','Kontak']].map(([href, label]) => (
+                <a key={href} href={href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    textDecoration: 'none', color: '#374151',
+                    fontSize: 15, fontWeight: 500,
+                    padding: '12px 4px', borderBottom: '1px solid #f9fafb',
+                  }}
+                >{label}</a>
+              ))}
+              <a href="#kamar"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  display: 'block', marginTop: 8,
+                  background: primary, color: '#fff',
+                  padding: '13px 0', borderRadius: 8,
+                  textDecoration: 'none', fontSize: 15,
+                  fontWeight: 600, textAlign: 'center',
+                }}
+              >Pesan Sekarang</a>
+            </div>
+          )}
+        </nav>
+      </>
 
       {/* ── HERO dengan slideshow ── */}
       <section style={{
@@ -762,6 +761,121 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
           <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
             <SectionHeader label="Tentang Kami" title={tenant.nama} primary={primary} fHeading={fHeading} />
             <p style={{ fontSize: 16, lineHeight: 1.8, color: '#4b5563' }}>{tenant.deskripsi}</p>
+          </div>
+        </section>
+      )}
+
+      {/* ── LOKASI & MAP ── */}
+      {tenant.alamat && (
+        <section style={{ padding: '80px 5%', background: '#fff' }}>
+          <div style={{ maxWidth: 900, margin: '0 auto' }}>
+            <SectionHeader
+              label="Lokasi Kami"
+              title="Temukan Kami"
+              sub={tenant.alamat}
+              primary={primary}
+              fHeading={fHeading}
+            />
+
+            <div style={{
+              borderRadius: 20, overflow: 'hidden',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+              position: 'relative',
+            }}>
+              {/* Google Maps Embed */}
+              <iframe
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(tenant.alamat)}&output=embed&z=16&hl=id`}
+                width="100%"
+                height="400"
+                style={{ border: 'none', display: 'block' }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Lokasi penginapan"
+              />
+
+              {/* Tombol buka di Google Maps */}
+              <a
+                href={`https://maps.google.com/maps?q=${encodeURIComponent(tenant.alamat)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  position: 'absolute', bottom: 16, right: 16,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: '#fff', color: '#1a1a1a',
+                  padding: '10px 16px', borderRadius: 10,
+                  textDecoration: 'none', fontSize: 13, fontWeight: 600,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                  border: '1px solid #e5e7eb',
+                  transition: 'box-shadow 0.2s',
+                }}
+                onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)')}
+                onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)')}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                Buka di Google Maps
+              </a>
+            </div>
+
+            {/* Info tambahan di bawah map */}
+            <div style={{
+              display: 'flex', gap: 16, marginTop: 20, flexWrap: 'wrap',
+            }}>
+              <div style={{
+                flex: 1, minWidth: 200,
+                background: '#f9fafb', borderRadius: 12,
+                padding: '16px 20px', border: '1px solid #e5e7eb',
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                  background: `${theme.primary_color}15`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Alamat</div>
+                  <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{tenant.alamat}</div>
+                </div>
+              </div>
+
+              {tenant.nomor_hp && (
+                <div style={{
+                  flex: 1, minWidth: 200,
+                  background: '#f9fafb', borderRadius: 12,
+                  padding: '16px 20px', border: '1px solid #e5e7eb',
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    background: '#dcfce7',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Telepon / WhatsApp</div>
+                    <a
+                      href={`https://wa.me/${tenant.nomor_hp.replace(/\D/g, '')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}
+                    >
+                      {tenant.nomor_hp}
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       )}
