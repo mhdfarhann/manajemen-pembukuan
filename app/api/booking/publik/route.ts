@@ -37,11 +37,21 @@ export async function POST(request: NextRequest) {
     nomor_hp, durasi, tanggal_in, catatan,
   } = body
 
+
+   console.log('VALIDASI:', { 
+    tenant_id: !!tenant_id, 
+    kamar_id: !!kamar_id, 
+    nama_tamu: !!nama_tamu, 
+    durasi: !!durasi, 
+    tanggal_in: !!tanggal_in 
+  })
+
   // ── Validasi input wajib ────────────────────────────────────────────────
-  if (!tenant_id || !kamar_id || !nama_tamu || !durasi || !tanggal_in) {
+   if (!tenant_id || !kamar_id || !nama_tamu || !durasi || !tanggal_in) {
+    console.log('GAGAL VALIDASI') // ← dan ini
     return NextResponse.json(
       { error: 'tenant_id, kamar_id, nama_tamu, durasi, dan tanggal_in wajib diisi.' },
-      { status: 400 }
+      { status: 400 }  // ← ini harusnya 400, bukan 404!
     )
   }
 
@@ -56,6 +66,8 @@ export async function POST(request: NextRequest) {
     .eq('id', tenant_id)
     .eq('is_active', true)
     .single()
+
+    
 
   if (!tenant) {
     return NextResponse.json({ error: 'Tenant tidak ditemukan atau tidak aktif.' }, { status: 404 })
