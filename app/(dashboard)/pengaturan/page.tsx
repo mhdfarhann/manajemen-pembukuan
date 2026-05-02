@@ -18,11 +18,9 @@ type Tab = 'kamar' | 'harga' | 'media'
 
 // ─── Helper: ambil tenant_id user yang sedang login ───────────
 async function getTenantId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data } = await supabase
-    .from('users').select('tenant_id').eq('id', user.id).single()
-  return data?.tenant_id ?? null
+  const { data, error } = await supabase.rpc('get_my_tenant_id')
+  if (error) console.error('getTenantId error:', error)
+  return data ?? null
 }
 
 export default function PengaturanPage() {
@@ -712,6 +710,8 @@ function TabMedia() {
 
     setUploading(true)
     const existingCount = images.filter(img => img.kamar_id === selectedKamarId).length
+    console.log('DEBUG upload:', { tenantId, selectedKamarId, files: files.map(f => f.name) })
+
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
@@ -721,6 +721,8 @@ function TabMedia() {
       const { error: upErr } = await supabase.storage
         .from('tenant-media')
         .upload(path, file, { contentType: file.type })
+
+        console.log('Upload result:', { upErr, path })
 
       if (upErr) { flash(`Gagal upload ${file.name}: ${upErr.message}`, 'error'); continue }
 
