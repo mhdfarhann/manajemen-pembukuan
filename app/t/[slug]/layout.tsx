@@ -10,18 +10,35 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params
+  try {
+    const { slug } = await params
+    const config = await getTenantBySlug(slug)
+    if (!config) return { title: 'Tidak Ditemukan' }
 
-  const config = await getTenantBySlug(slug)
-  if (!config) return { title: 'Tidak Ditemukan' }
+    const { tenant, theme } = config
+    const logoUrl      = theme.logo_url      ?? null
+    const heroImageUrl = theme.hero_image_url ?? null
 
-  return {
-    title:       config.tenant.nama,
-    description: config.tenant.tagline ?? `Reservasi kamar di ${config.tenant.nama}`,
-    openGraph: {
-      title:  config.tenant.nama,
-      images: config.theme.hero_image_url ? [config.theme.hero_image_url] : [],
-    },
+    return {
+      title:       tenant.nama,
+      description: tenant.tagline ?? `Reservasi kamar di ${tenant.nama}`,
+      ...(heroImageUrl && {
+        openGraph: {
+          title:  tenant.nama,
+          images: [heroImageUrl],
+        },
+      }),
+      ...(logoUrl && {
+        icons: {
+          icon:     logoUrl,
+          shortcut: logoUrl,
+          apple:    logoUrl,
+        },
+      }),
+    }
+  } catch (e) {
+    console.error('generateMetadata error:', e)
+    return { title: 'Penginapan' }
   }
 }
 
@@ -59,9 +76,16 @@ export default async function TenantLayout({ children, params }: Props) {
 }
 
 function darken(hex: string): string {
-  const n = parseInt(hex.replace('#', ''), 16)
-  const r = Math.max(0, (n >> 16) - 40)
-  const g = Math.max(0, ((n >> 8) & 0xff) - 40)
-  const b = Math.max(0, (n & 0xff) - 40)
-  return `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')}`
+  try {
+    const clean = hex?.replace('#', '')
+    if (!clean || clean.length < 6) return hex ?? '#1a1a1a'
+    const n = parseInt(clean, 16)
+    if (isNaN(n)) return hex
+    const r = Math.max(0, (n >> 16) - 40)
+    const g = Math.max(0, ((n >> 8) & 0xff) - 40)
+    const b = Math.max(0, (n & 0xff) - 40)
+    return `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')}`
+  } catch {
+    return '#1a1a1a'
+  }
 }
