@@ -8,6 +8,7 @@ export interface Tenant {
   id:            string
   slug:          string
   nama:          string
+  maps_url:         string | null
   tagline:       string | null
   deskripsi:     string | null
   alamat:        string | null

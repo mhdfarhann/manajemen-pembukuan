@@ -785,7 +785,7 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
             }}>
               {/* Google Maps Embed */}
               <iframe
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(tenant.alamat)}&output=embed&z=16&hl=id`}
+                src={tenant.alamat ? `https://maps.google.com/maps?q=${encodeURIComponent(tenant.alamat)}&output=embed&z=17&hl=id` : ''}
                 width="100%"
                 height="400"
                 style={{ border: 'none', display: 'block' }}
@@ -795,9 +795,9 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
                 title="Lokasi penginapan"
               />
 
-              {/* Tombol buka di Google Maps */}
+              {/* Tombol buka di Google Maps — pakai share link jika ada, fallback ke alamat */}
               <a
-                href={`https://maps.google.com/maps?q=${encodeURIComponent(tenant.alamat)}`}
+                href={tenant.maps_url ?? `https://maps.google.com/maps?q=${encodeURIComponent(tenant.alamat ?? '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -847,34 +847,6 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
                 </div>
               </div>
 
-              {tenant.nomor_hp && (
-                <div style={{
-                  flex: 1, minWidth: 200,
-                  background: '#f9fafb', borderRadius: 12,
-                  padding: '16px 20px', border: '1px solid #e5e7eb',
-                  display: 'flex', alignItems: 'flex-start', gap: 12,
-                }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                    background: '#dcfce7',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Telepon / WhatsApp</div>
-                    <a
-                      href={`https://wa.me/${tenant.nomor_hp.replace(/\D/g, '')}`}
-                      target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}
-                    >
-                      {tenant.nomor_hp}
-                    </a>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </section>

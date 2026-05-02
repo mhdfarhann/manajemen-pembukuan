@@ -8,13 +8,13 @@ import {
   Plus, Trash2, Pencil, Check, X, Building2,
   Hash, Layers, Tag,
   DollarSign, AlertCircle, PackagePlus,
-  ImageIcon
+  ImageIcon, User, MapPin, Phone, Mail, Link, FileText, Sparkles,
 } from 'lucide-react'
 
 type Kamar    = Database['public']['Tables']['kamar']['Row']
 type HargaRow = Database['public']['Tables']['harga']['Row']
 
-type Tab = 'kamar' | 'harga' | 'media'
+type Tab = 'kamar' | 'harga' | 'media' | 'profil'
 
 // ─── Helper: ambil tenant_id user yang sedang login ───────────
 async function getTenantId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
@@ -35,7 +35,7 @@ export default function PengaturanPage() {
           Pengaturan
         </h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-          Kelola data kamar dan harga sewa per lantai
+          Kelola profil, kamar, harga, dan media penginapan
         </p>
       </div>
 
@@ -48,9 +48,10 @@ export default function PengaturanPage() {
         width: 'fit-content', marginBottom: 24,
       }}>
         {([
-          { key: 'kamar', label: 'Manajemen Kamar', icon: Building2 },
-          { key: 'harga', label: 'Harga Sewa',       icon: DollarSign },
-          { key: 'media', label: 'Branding & Media', icon: ImageIcon },
+          { key: 'profil', label: 'Profil & Lokasi',   icon: User       },
+          { key: 'kamar',  label: 'Manajemen Kamar',   icon: Building2  },
+          { key: 'harga',  label: 'Harga Sewa',        icon: DollarSign },
+          { key: 'media',  label: 'Branding & Media',  icon: ImageIcon  },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -71,12 +72,310 @@ export default function PengaturanPage() {
         ))}
       </div>
 
-      {/* ✅ Fix: render hanya tab yang aktif */}
+      {activeTab === 'profil' && <TabProfil />}
       {activeTab === 'kamar' && <TabKamar />}
       {activeTab === 'harga' && <TabHarga />}
       {activeTab === 'media' && <TabMedia />}
 
     </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB PROFIL & LOKASI
+// ═══════════════════════════════════════════════════════════════
+function TabProfil() {
+  const supabaseRef = useRef(createClient())
+  const supabase    = supabaseRef.current
+
+  const [tenantId, setTenantId] = useState<string>('')
+  const [loading,  setLoading]  = useState(true)
+  const [saving,   setSaving]   = useState(false)
+  const [error,    setError]    = useState('')
+  const [success,  setSuccess]  = useState('')
+
+  const [form, setForm] = useState({
+    nama:      '',
+    tagline:   '',
+    deskripsi: '',
+    alamat:    '',
+    nomor_hp:  '',
+    email:     '',
+    maps_url:  '',
+  })
+
+  const fetchProfil = useCallback(async () => {
+    setLoading(true)
+    const tid = await getTenantId(supabase)
+    if (!tid) { setLoading(false); return }
+    setTenantId(tid)
+
+    const { data } = await supabase
+      .from('tenants')
+      .select('nama, tagline, deskripsi, alamat, nomor_hp, email, maps_url')
+      .eq('id', tid)
+      .single()
+
+    if (data) {
+      setForm({
+        nama:      data.nama      ?? '',
+        tagline:   data.tagline   ?? '',
+        deskripsi: data.deskripsi ?? '',
+        alamat:    data.alamat    ?? '',
+        nomor_hp:  data.nomor_hp  ?? '',
+        email:     data.email     ?? '',
+        maps_url:  data.maps_url  ?? '',
+      })
+    }
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => { fetchProfil() }, [fetchProfil])
+
+  function flash(msg: string, type: 'success' | 'error' = 'success') {
+    if (type === 'success') { setSuccess(msg); setTimeout(() => setSuccess(''), 3000) }
+    else                    { setError(msg);   setTimeout(() => setError(''), 4000) }
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!tenantId) { flash('Session tidak valid, coba refresh halaman.', 'error'); return }
+    if (!form.nama.trim()) { flash('Nama penginapan wajib diisi.', 'error'); return }
+
+    // Validasi maps_url jika diisi
+    if (form.maps_url && !form.maps_url.startsWith('https://')) {
+      flash('Link Google Maps harus diawali dengan https://', 'error'); return
+    }
+
+    setSaving(true)
+    const { error: err } = await supabase
+      .from('tenants')
+      .update({
+        nama:      form.nama.trim(),
+        tagline:   form.tagline.trim()   || null,
+        deskripsi: form.deskripsi.trim() || null,
+        alamat:    form.alamat.trim()    || null,
+        nomor_hp:  form.nomor_hp.trim()  || null,
+        email:     form.email.trim()     || null,
+        maps_url:  form.maps_url.trim()  || null,
+      })
+      .eq('id', tenantId)
+
+    if (err) flash(err.message, 'error')
+    else flash('Profil berhasil disimpan.')
+    setSaving(false)
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 60, gap: 10 }}>
+        <div className="loader" />
+        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Memuat data profil...</span>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSave}>
+      {(success || error) && (
+        <div style={{
+          background: success ? 'var(--green-light)' : 'var(--red-light)',
+          border: `1px solid ${success ? 'var(--green-border)' : 'var(--red-border)'}`,
+          borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+          color: success ? 'var(--green)' : 'var(--red)',
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {success ? <Check size={14} /> : <AlertCircle size={14} />}
+          {success || error}
+        </div>
+      )}
+
+      {/* ── Identitas ── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Sparkles size={14} color="#fff" />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Identitas Penginapan</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div>
+            <label className="field-label">
+              <Building2 size={10} style={{ display: 'inline', marginRight: 4 }} />
+              Nama Penginapan *
+            </label>
+            <input
+              value={form.nama}
+              onChange={e => setForm({ ...form, nama: e.target.value })}
+              placeholder="cth: AR Executive Homestay"
+              required
+            />
+          </div>
+          <div>
+            <label className="field-label">
+              <Tag size={10} style={{ display: 'inline', marginRight: 4 }} />
+              Tagline
+            </label>
+            <input
+              value={form.tagline}
+              onChange={e => setForm({ ...form, tagline: e.target.value })}
+              placeholder="cth: Nyaman, Bersih, Harga Terjangkau"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="field-label">
+            <FileText size={10} style={{ display: 'inline', marginRight: 4 }} />
+            Deskripsi
+          </label>
+          <textarea
+            value={form.deskripsi}
+            onChange={e => setForm({ ...form, deskripsi: e.target.value })}
+            placeholder="Ceritakan tentang penginapan Anda, fasilitas, keunggulan, dll..."
+            rows={4}
+            style={{
+              width: '100%', resize: 'vertical', minHeight: 90,
+              padding: '9px 12px', borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--bg)',
+              color: 'var(--text-primary)',
+              fontSize: 13, fontFamily: 'inherit',
+              lineHeight: 1.6,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* ── Kontak ── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone size={14} color="#fff" />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Informasi Kontak</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div>
+            <label className="field-label">
+              <Phone size={10} style={{ display: 'inline', marginRight: 4 }} />
+              Nomor HP / WhatsApp
+            </label>
+            <input
+              value={form.nomor_hp}
+              onChange={e => setForm({ ...form, nomor_hp: e.target.value })}
+              placeholder="cth: 08123456789"
+              type="tel"
+            />
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              Akan dipakai untuk tombol WhatsApp di landing page
+            </p>
+          </div>
+          <div>
+            <label className="field-label">
+              <Mail size={10} style={{ display: 'inline', marginRight: 4 }} />
+              Email
+            </label>
+            <input
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              placeholder="cth: info@penginapan.com"
+              type="email"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Lokasi ── */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MapPin size={14} color="#fff" />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Lokasi</span>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label className="field-label">
+            <MapPin size={10} style={{ display: 'inline', marginRight: 4 }} />
+            Alamat Lengkap
+          </label>
+          <input
+            value={form.alamat}
+            onChange={e => setForm({ ...form, alamat: e.target.value })}
+            placeholder="cth: Jl. Sudirman No. 10, Medan, Sumatera Utara"
+          />
+        </div>
+
+        <div>
+          <label className="field-label">
+            <Link size={10} style={{ display: 'inline', marginRight: 4 }} />
+            Link Google Maps
+          </label>
+          <input
+            value={form.maps_url}
+            onChange={e => setForm({ ...form, maps_url: e.target.value })}
+            placeholder="cth: https://maps.app.goo.gl/M9UcTsnKChirY8bb6"
+            type="url"
+          />
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            Cara mendapatkan link: buka Google Maps → cari lokasi persis penginapan → klik <strong>Bagikan</strong> → salin link pendek.
+            Tombol "Buka di Google Maps" di landing page akan mengarah tepat ke lokasi ini.
+          </p>
+
+          {/* Preview link */}
+          {form.maps_url && (
+            <div style={{
+              marginTop: 10, padding: '10px 14px', borderRadius: 8,
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <MapPin size={14} color="var(--red, #dc2626)" style={{ flexShrink: 0 }} />
+                <span style={{
+                  fontSize: 12, color: 'var(--text-muted)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {form.maps_url}
+                </span>
+              </div>
+              <a
+                href={form.maps_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  flexShrink: 0, fontSize: 12, fontWeight: 500,
+                  color: 'var(--accent)', textDecoration: 'none',
+                  padding: '4px 10px', borderRadius: 6,
+                  border: '1px solid var(--accent-mid)',
+                  background: 'var(--accent-light)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Buka ↗
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Simpan ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={saving || !tenantId}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 24px' }}
+        >
+          {saving
+            ? <><span className="loader" style={{ width: 13, height: 13 }} /> Menyimpan...</>
+            : <><Check size={14} /> Simpan Perubahan</>
+          }
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -92,7 +391,7 @@ function TabKamar() {
   const [saving,       setSaving]      = useState(false)
   const [error,        setError]       = useState('')
   const [success,      setSuccess]     = useState('')
-  const [tenantId,     setTenantId]    = useState<string>('')   // ✅ tambah state
+  const [tenantId,     setTenantId]    = useState<string>('')
 
   const [editId,   setEditId]   = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Kamar>>({})
@@ -109,7 +408,6 @@ function TabKamar() {
 
   const [filterLantai, setFilterLantai] = useState<number | ''>('')
 
-  // ✅ Fetch tenant_id saat mount
   useEffect(() => {
     getTenantId(supabase).then(tid => { if (tid) setTenantId(tid) })
   }, [supabase])
@@ -127,7 +425,6 @@ function TabKamar() {
     else                    { setError(msg);   setTimeout(() => setError(''), 4000) }
   }
 
-  // ── Tambah satu kamar ──────────────────────────────────────
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     if (!tenantId) { flash('Session tidak valid, coba refresh halaman.', 'error'); return }
@@ -145,7 +442,7 @@ function TabKamar() {
       lantai:      addForm.lantai,
       tipe:        addForm.tipe,
       catatan:     addForm.catatan || null,
-      tenant_id:   tenantId,   // ✅ wajib ada
+      tenant_id:   tenantId,
     })
 
     if (err) flash(err.message, 'error')
@@ -158,7 +455,6 @@ function TabKamar() {
     setSaving(false)
   }
 
-  // ── Tambah batch ───────────────────────────────────────────
   async function handleBatch() {
     if (!tenantId) { flash('Session tidak valid, coba refresh halaman.', 'error'); return }
     if (batchDari > batchSampai) { flash('Angka awal harus ≤ angka akhir.', 'error'); return }
@@ -173,12 +469,7 @@ function TabKamar() {
         ? `${prefix}${batchLantai}${String(i).padStart(2, '0')}`
         : `${batchLantai}${String(i).padStart(2, '0')}`
       if (!kamarList.some(k => k.nomor_kamar === nomor)) {
-        newKamar.push({
-          nomor_kamar: nomor,
-          lantai:      batchLantai,
-          tipe:        batchTipe,
-          tenant_id:   tenantId,   // ✅ wajib ada
-        })
+        newKamar.push({ nomor_kamar: nomor, lantai: batchLantai, tipe: batchTipe, tenant_id: tenantId })
       }
     }
 
@@ -186,15 +477,10 @@ function TabKamar() {
 
     const { error: err } = await supabase.from('kamar').insert(newKamar)
     if (err) flash(err.message, 'error')
-    else {
-      flash(`${newKamar.length} kamar berhasil ditambahkan ke lantai ${batchLantai}.`)
-      setShowBatch(false)
-      fetchKamar()
-    }
+    else { flash(`${newKamar.length} kamar berhasil ditambahkan ke lantai ${batchLantai}.`); setShowBatch(false); fetchKamar() }
     setSaving(false)
   }
 
-  // ── Edit inline ────────────────────────────────────────────
   function startEdit(kamar: Kamar) {
     setEditId(kamar.id)
     setEditForm({ nomor_kamar: kamar.nomor_kamar, lantai: kamar.lantai, tipe: kamar.tipe, catatan: kamar.catatan || '' })
@@ -214,12 +500,8 @@ function TabKamar() {
     setSaving(false)
   }
 
-  // ── Hapus ──────────────────────────────────────────────────
   async function handleDelete(kamar: Kamar) {
-    if (kamar.status === 'terisi') {
-      flash('Kamar sedang terisi, tidak bisa dihapus.', 'error')
-      return
-    }
+    if (kamar.status === 'terisi') { flash('Kamar sedang terisi, tidak bisa dihapus.', 'error'); return }
     if (!confirm(`Hapus kamar ${kamar.nomor_kamar}?\nTindakan ini tidak bisa dibatalkan.`)) return
     const { error: err } = await supabase.from('kamar').delete().eq('id', kamar.id)
     if (err) flash(err.message, 'error')
@@ -257,36 +539,20 @@ function TabKamar() {
       )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select
-          value={filterLantai}
-          onChange={e => setFilterLantai(e.target.value === '' ? '' : Number(e.target.value))}
-          style={{ width: 140 }}
-        >
+        <select value={filterLantai} onChange={e => setFilterLantai(e.target.value === '' ? '' : Number(e.target.value))} style={{ width: 140 }}>
           <option value="">Semua Lantai</option>
           {lantaiList.map(l => <option key={l} value={l}>Lantai {l}</option>)}
         </select>
-
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button
-            className="btn-secondary"
-            onClick={() => { setShowBatch(v => !v); setShowAddForm(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 7 }}
-          >
-            <PackagePlus size={14} />
-            Tambah Batch
+          <button className="btn-secondary" onClick={() => { setShowBatch(v => !v); setShowAddForm(false) }} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <PackagePlus size={14} /> Tambah Batch
           </button>
-          <button
-            className="btn-primary"
-            onClick={() => { setShowAddForm(v => !v); setShowBatch(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 7 }}
-          >
-            <Plus size={14} strokeWidth={2.5} />
-            Tambah Kamar
+          <button className="btn-primary" onClick={() => { setShowAddForm(v => !v); setShowBatch(false) }} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Plus size={14} strokeWidth={2.5} /> Tambah Kamar
           </button>
         </div>
       </div>
 
-      {/* ── Form tambah single ─────────────────────────────── */}
       {showAddForm && (
         <div className="card" style={{ marginBottom: 16, borderColor: 'var(--accent-mid)', background: 'var(--accent-light)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -299,22 +565,11 @@ function TabKamar() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
                 <label className="field-label">Nomor Kamar *</label>
-                <input
-                  placeholder="cth: 101, A201"
-                  value={addForm.nomor_kamar}
-                  onChange={e => setAddForm({ ...addForm, nomor_kamar: e.target.value.toUpperCase() })}
-                  required
-                  style={{ textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
-                />
+                <input placeholder="cth: 101, A201" value={addForm.nomor_kamar} onChange={e => setAddForm({ ...addForm, nomor_kamar: e.target.value.toUpperCase() })} required style={{ textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }} />
               </div>
               <div>
                 <label className="field-label">Lantai *</label>
-                <input
-                  type="number" min={1} max={99}
-                  value={addForm.lantai}
-                  onChange={e => setAddForm({ ...addForm, lantai: Number(e.target.value) })}
-                  required
-                />
+                <input type="number" min={1} max={99} value={addForm.lantai} onChange={e => setAddForm({ ...addForm, lantai: Number(e.target.value) })} required />
               </div>
               <div>
                 <label className="field-label">Tipe</label>
@@ -328,11 +583,7 @@ function TabKamar() {
             </div>
             <div style={{ marginBottom: 14 }}>
               <label className="field-label">Catatan</label>
-              <input
-                placeholder="Catatan tambahan (opsional)"
-                value={addForm.catatan}
-                onChange={e => setAddForm({ ...addForm, catatan: e.target.value })}
-              />
+              <input placeholder="Catatan tambahan (opsional)" value={addForm.catatan} onChange={e => setAddForm({ ...addForm, catatan: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn-secondary" onClick={() => setShowAddForm(false)}>Batal</button>
@@ -344,7 +595,6 @@ function TabKamar() {
         </div>
       )}
 
-      {/* ── Form tambah batch ─────────────────────────────── */}
       {showBatch && (
         <div className="card" style={{ marginBottom: 16, borderColor: '#c4b5fd', background: '#faf5ff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -353,7 +603,6 @@ function TabKamar() {
             </div>
             <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>Tambah Kamar Sekaligus (Batch)</span>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
               <label className="field-label"><Layers size={10} style={{ display: 'inline', marginRight: 3 }} />Lantai</label>
@@ -369,75 +618,36 @@ function TabKamar() {
             </div>
             <div>
               <label className="field-label"><Tag size={10} style={{ display: 'inline', marginRight: 3 }} />Prefix (opsional)</label>
-              <input
-                placeholder="cth: A, B, VIP"
-                value={batchPrefix}
-                onChange={e => setBatchPrefix(e.target.value.toUpperCase())}
-                style={{ textTransform: 'uppercase' }}
-              />
+              <input placeholder="cth: A, B, VIP" value={batchPrefix} onChange={e => setBatchPrefix(e.target.value.toUpperCase())} style={{ textTransform: 'uppercase' }} />
             </div>
           </div>
-
           <div style={{ marginBottom: 14 }}>
             <label className="field-label">Tipe Kamar</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {['standard', 'deluxe', 'suite', 'vip'].map(t => (
-                <button
-                  key={t} type="button"
-                  onClick={() => setBatchTipe(t)}
-                  style={{
-                    padding: '6px 14px', borderRadius: 7, border: '1px solid',
-                    cursor: 'pointer', fontSize: 12, fontWeight: batchTipe === t ? 500 : 400,
-                    textTransform: 'capitalize',
-                    background: batchTipe === t ? '#ede9fe' : 'var(--bg)',
-                    borderColor: batchTipe === t ? '#7c3aed' : 'var(--border)',
-                    color: batchTipe === t ? '#7c3aed' : 'var(--text-muted)',
-                    transition: 'all 0.15s',
-                  }}
-                >
+                <button key={t} type="button" onClick={() => setBatchTipe(t)} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid', cursor: 'pointer', fontSize: 12, fontWeight: batchTipe === t ? 500 : 400, textTransform: 'capitalize', background: batchTipe === t ? '#ede9fe' : 'var(--bg)', borderColor: batchTipe === t ? '#7c3aed' : 'var(--border)', color: batchTipe === t ? '#7c3aed' : 'var(--text-muted)', transition: 'all 0.15s' }}>
                   {t}
                 </button>
               ))}
             </div>
           </div>
-
           <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 6, letterSpacing: '0.06em' }}>
-              PREVIEW NOMOR KAMAR — {batchSampai - batchDari + 1} kamar
-            </div>
+            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 6, letterSpacing: '0.06em' }}>PREVIEW NOMOR KAMAR — {batchSampai - batchDari + 1} kamar</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {batchPreview.map((n, i) => (
-                <span key={i} style={{
-                  background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-                  borderRadius: 6, padding: '3px 10px',
-                  fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)',
-                }}>
-                  {n}
-                </span>
+                <span key={i} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)' }}>{n}</span>
               ))}
             </div>
           </div>
-
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn-secondary" onClick={() => setShowBatch(false)}>Batal</button>
-            <button
-              className="btn-primary"
-              onClick={handleBatch}
-              disabled={saving || !tenantId}
-              style={{ background: '#7c3aed' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#6d28d9')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#7c3aed')}
-            >
-              {saving
-                ? <><span className="loader" style={{ width: 13, height: 13 }} /> Menambahkan...</>
-                : <><PackagePlus size={13} /> Tambah {batchSampai - batchDari + 1} Kamar</>
-              }
+            <button className="btn-primary" onClick={handleBatch} disabled={saving || !tenantId} style={{ background: '#7c3aed' }} onMouseEnter={e => (e.currentTarget.style.background = '#6d28d9')} onMouseLeave={e => (e.currentTarget.style.background = '#7c3aed')}>
+              {saving ? <><span className="loader" style={{ width: 13, height: 13 }} /> Menambahkan...</> : <><PackagePlus size={13} /> Tambah {batchSampai - batchDari + 1} Kamar</>}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Tabel kamar ───────────────────────────────────── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {!loading && (
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
@@ -445,32 +655,17 @@ function TabKamar() {
               const total  = kamarList.filter(k => k.lantai === l).length
               const kosong = kamarList.filter(k => k.lantai === l && k.status === 'kosong').length
               return (
-                <button
-                  key={l}
-                  onClick={() => setFilterLantai(filterLantai === l ? '' : l)}
-                  style={{
-                    flex: '0 0 auto', padding: '10px 20px',
-                    border: 'none', borderRight: '1px solid var(--border)',
-                    background: filterLantai === l ? 'var(--accent-light)' : 'var(--bg-secondary)',
-                    cursor: 'pointer', transition: 'background 0.15s', textAlign: 'left',
-                  }}
-                >
-                  <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: filterLantai === l ? 'var(--accent)' : 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 2 }}>
-                    LANTAI {l}
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
-                    {total} kamar · <span style={{ color: 'var(--green)' }}>{kosong} kosong</span>
-                  </div>
+                <button key={l} onClick={() => setFilterLantai(filterLantai === l ? '' : l)} style={{ flex: '0 0 auto', padding: '10px 20px', border: 'none', borderRight: '1px solid var(--border)', background: filterLantai === l ? 'var(--accent-light)' : 'var(--bg-secondary)', cursor: 'pointer', transition: 'background 0.15s', textAlign: 'left' }}>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: filterLantai === l ? 'var(--accent)' : 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 2 }}>LANTAI {l}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{total} kamar · <span style={{ color: 'var(--green)' }}>{kosong} kosong</span></div>
                 </button>
               )
             })}
           </div>
         )}
-
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60, gap: 10 }}>
-            <div className="loader" />
-            <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Memuat data kamar...</span>
+            <div className="loader" /><span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Memuat data kamar...</span>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '50px 20px' }}>
@@ -496,120 +691,42 @@ function TabKamar() {
                 const isEditing = editId === kamar.id
                 return (
                   <tr key={kamar.id}>
-                    <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                      {String(i + 1).padStart(2, '0')}
+                    <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>{String(i + 1).padStart(2, '0')}</td>
+                    <td>
+                      {isEditing
+                        ? <input value={editForm.nomor_kamar ?? ''} onChange={e => setEditForm({ ...editForm, nomor_kamar: e.target.value.toUpperCase() })} style={{ width: 90, fontFamily: 'var(--font-mono)', fontSize: 13, padding: '5px 8px', textTransform: 'uppercase' }} />
+                        : <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent)', fontSize: 14 }}>{kamar.nomor_kamar}</span>
+                      }
                     </td>
                     <td>
-                      {isEditing ? (
-                        <input
-                          value={editForm.nomor_kamar ?? ''}
-                          onChange={e => setEditForm({ ...editForm, nomor_kamar: e.target.value.toUpperCase() })}
-                          style={{ width: 90, fontFamily: 'var(--font-mono)', fontSize: 13, padding: '5px 8px', textTransform: 'uppercase' }}
-                        />
-                      ) : (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent)', fontSize: 14 }}>
-                          {kamar.nomor_kamar}
-                        </span>
-                      )}
+                      {isEditing
+                        ? <input type="number" min={1} max={99} value={editForm.lantai ?? 1} onChange={e => setEditForm({ ...editForm, lantai: Number(e.target.value) })} style={{ width: 70, padding: '5px 8px' }} />
+                        : <span style={{ color: 'var(--text-secondary)' }}>{kamar.lantai}</span>
+                      }
                     </td>
                     <td>
-                      {isEditing ? (
-                        <input
-                          type="number" min={1} max={99}
-                          value={editForm.lantai ?? 1}
-                          onChange={e => setEditForm({ ...editForm, lantai: Number(e.target.value) })}
-                          style={{ width: 70, padding: '5px 8px' }}
-                        />
-                      ) : (
-                        <span style={{ color: 'var(--text-secondary)' }}>{kamar.lantai}</span>
-                      )}
+                      {isEditing
+                        ? <select value={editForm.tipe ?? 'standard'} onChange={e => setEditForm({ ...editForm, tipe: e.target.value })} style={{ width: 120, padding: '5px 8px' }}><option value="standard">Standard</option><option value="deluxe">Deluxe</option><option value="suite">Suite</option><option value="vip">VIP</option></select>
+                        : <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize', background: kamar.tipe === 'vip' ? '#fef9c3' : kamar.tipe === 'suite' ? '#ede9fe' : kamar.tipe === 'deluxe' ? '#e0f2fe' : 'var(--bg-secondary)', color: kamar.tipe === 'vip' ? '#854d0e' : kamar.tipe === 'suite' ? '#6d28d9' : kamar.tipe === 'deluxe' ? '#0369a1' : 'var(--text-muted)', border: '1px solid', borderColor: kamar.tipe === 'vip' ? '#fde68a' : kamar.tipe === 'suite' ? '#c4b5fd' : kamar.tipe === 'deluxe' ? '#bae6fd' : 'var(--border)' }}>{kamar.tipe}</span>
+                      }
                     </td>
+                    <td><span className={`badge badge-${kamar.status}`}>{kamar.status}</span></td>
                     <td>
-                      {isEditing ? (
-                        <select
-                          value={editForm.tipe ?? 'standard'}
-                          onChange={e => setEditForm({ ...editForm, tipe: e.target.value })}
-                          style={{ width: 120, padding: '5px 8px' }}
-                        >
-                          <option value="standard">Standard</option>
-                          <option value="deluxe">Deluxe</option>
-                          <option value="suite">Suite</option>
-                          <option value="vip">VIP</option>
-                        </select>
-                      ) : (
-                        <span style={{
-                          fontSize: 11, fontFamily: 'var(--font-mono)',
-                          padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize',
-                          background: kamar.tipe === 'vip' ? '#fef9c3' : kamar.tipe === 'suite' ? '#ede9fe' : kamar.tipe === 'deluxe' ? '#e0f2fe' : 'var(--bg-secondary)',
-                          color: kamar.tipe === 'vip' ? '#854d0e' : kamar.tipe === 'suite' ? '#6d28d9' : kamar.tipe === 'deluxe' ? '#0369a1' : 'var(--text-muted)',
-                          border: '1px solid',
-                          borderColor: kamar.tipe === 'vip' ? '#fde68a' : kamar.tipe === 'suite' ? '#c4b5fd' : kamar.tipe === 'deluxe' ? '#bae6fd' : 'var(--border)',
-                        }}>
-                          {kamar.tipe}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`badge badge-${kamar.status}`}>{kamar.status}</span>
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <input
-                          placeholder="Catatan..."
-                          value={editForm.catatan ?? ''}
-                          onChange={e => setEditForm({ ...editForm, catatan: e.target.value })}
-                          style={{ padding: '5px 8px' }}
-                        />
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12, fontStyle: kamar.catatan ? 'normal' : 'italic' }}>
-                          {kamar.catatan || '—'}
-                        </span>
-                      )}
+                      {isEditing
+                        ? <input placeholder="Catatan..." value={editForm.catatan ?? ''} onChange={e => setEditForm({ ...editForm, catatan: e.target.value })} style={{ padding: '5px 8px' }} />
+                        : <span style={{ color: 'var(--text-muted)', fontSize: 12, fontStyle: kamar.catatan ? 'normal' : 'italic' }}>{kamar.catatan || '—'}</span>
+                      }
                     </td>
                     <td>
                       {isEditing ? (
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            onClick={() => saveEdit(kamar.id)}
-                            disabled={saving}
-                            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)', background: 'var(--green-light)', color: 'var(--green)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
-                          >
-                            <Check size={12} /> Simpan
-                          </button>
-                          <button
-                            onClick={() => setEditId(null)}
-                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
-                          >
-                            <X size={12} />
-                          </button>
+                          <button onClick={() => saveEdit(kamar.id)} disabled={saving} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)', background: 'var(--green-light)', color: 'var(--green)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Simpan</button>
+                          <button onClick={() => setEditId(null)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={12} /></button>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            onClick={() => startEdit(kamar)}
-                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
-                            title="Edit"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(kamar)}
-                            disabled={kamar.status === 'terisi'}
-                            style={{
-                              padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)',
-                              background: 'transparent', color: 'var(--text-muted)',
-                              cursor: kamar.status === 'terisi' ? 'not-allowed' : 'pointer',
-                              opacity: kamar.status === 'terisi' ? 0.35 : 1,
-                              transition: 'all 0.15s',
-                            }}
-                            onMouseEnter={e => { if (kamar.status !== 'terisi') { e.currentTarget.style.borderColor = 'var(--red-border)'; e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-light)' } }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
-                            title={kamar.status === 'terisi' ? 'Tidak bisa hapus — kamar sedang terisi' : 'Hapus kamar'}
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          <button onClick={() => startEdit(kamar)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }} title="Edit"><Pencil size={12} /></button>
+                          <button onClick={() => handleDelete(kamar)} disabled={kamar.status === 'terisi'} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: kamar.status === 'terisi' ? 'not-allowed' : 'pointer', opacity: kamar.status === 'terisi' ? 0.35 : 1, transition: 'all 0.15s' }} onMouseEnter={e => { if (kamar.status !== 'terisi') { e.currentTarget.style.borderColor = 'var(--red-border)'; e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-light)' } }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }} title={kamar.status === 'terisi' ? 'Tidak bisa hapus — kamar sedang terisi' : 'Hapus kamar'}><Trash2 size={12} /></button>
                         </div>
                       )}
                     </td>
@@ -660,7 +777,7 @@ function TabMedia() {
       setKamarList(kamar)
       setSelectedKamarId(prev => prev || (kamar.length > 0 ? kamar[0].id : ''))
     }
-    if (imgs)           setImages(imgs)
+    if (imgs)            setImages(imgs)
     if (theme?.logo_url) setLogoUrl(theme.logo_url)
     setLoading(false)
   }, [supabase])
@@ -676,24 +793,17 @@ function TabMedia() {
     const file = e.target.files?.[0]
     if (!file || !tenantId) return
     if (file.size > 2 * 1024 * 1024) { flash('Logo maksimal 2MB.', 'error'); return }
-    if (!['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.type)) {
-      flash('Format logo: PNG, JPG, SVG, atau WEBP.', 'error'); return
-    }
+    if (!['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'].includes(file.type)) { flash('Format logo: PNG, JPG, SVG, atau WEBP.', 'error'); return }
 
     setLogoUploading(true)
     const ext  = file.name.split('.').pop()
     const path = `${tenantId}/logo/logo.${ext}`
 
-    const { error: upErr } = await supabase.storage
-      .from('tenant-media')
-      .upload(path, file, { upsert: true, contentType: file.type })
-
+    const { error: upErr } = await supabase.storage.from('tenant-media').upload(path, file, { upsert: true, contentType: file.type })
     if (upErr) { flash(upErr.message, 'error'); setLogoUploading(false); return }
 
     const { data: { publicUrl } } = supabase.storage.from('tenant-media').getPublicUrl(path)
-
     await supabase.from('tenant_theme').update({ logo_url: publicUrl }).eq('tenant_id', tenantId)
-
     setLogoUrl(publicUrl)
     flash('Logo berhasil diupload.')
     setLogoUploading(false)
@@ -702,7 +812,6 @@ function TabMedia() {
   async function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0 || !selectedKamarId || !tenantId) return
-
     for (const f of files) {
       if (f.size > 5 * 1024 * 1024) { flash(`${f.name} melebihi 5MB.`, 'error'); return }
       if (!f.type.startsWith('image/')) { flash(`${f.name} bukan gambar.`, 'error'); return }
@@ -710,31 +819,20 @@ function TabMedia() {
 
     setUploading(true)
     const existingCount = images.filter(img => img.kamar_id === selectedKamarId).length
-    console.log('DEBUG upload:', { tenantId, selectedKamarId, files: files.map(f => f.name) })
-
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const ext  = file.name.split('.').pop()
       const path = `${tenantId}/kamar/${selectedKamarId}/${Date.now()}-${i}.${ext}`
 
-      const { error: upErr } = await supabase.storage
-        .from('tenant-media')
-        .upload(path, file, { contentType: file.type })
-
-        console.log('Upload result:', { upErr, path })
-
+      const { error: upErr } = await supabase.storage.from('tenant-media').upload(path, file, { contentType: file.type })
       if (upErr) { flash(`Gagal upload ${file.name}: ${upErr.message}`, 'error'); continue }
 
       const { data: { publicUrl } } = supabase.storage.from('tenant-media').getPublicUrl(path)
-
       await supabase.from('kamar_images').insert({
-        kamar_id:     selectedKamarId,
-        tenant_id:    tenantId,
-        url:          publicUrl,
-        storage_path: path,
-        urutan:       existingCount + i,
-        is_cover:     existingCount === 0 && i === 0,
+        kamar_id: selectedKamarId, tenant_id: tenantId,
+        url: publicUrl, storage_path: path,
+        urutan: existingCount + i, is_cover: existingCount === 0 && i === 0,
       })
     }
 
@@ -746,12 +844,8 @@ function TabMedia() {
 
   async function handleSetCover(imgId: string) {
     const kamarImgs = images.filter(img => img.kamar_id === selectedKamarId)
-    await Promise.all(kamarImgs.map(img =>
-      supabase.from('kamar_images').update({ is_cover: img.id === imgId }).eq('id', img.id)
-    ))
-    setImages(prev => prev.map(img =>
-      img.kamar_id === selectedKamarId ? { ...img, is_cover: img.id === imgId } : img
-    ))
+    await Promise.all(kamarImgs.map(img => supabase.from('kamar_images').update({ is_cover: img.id === imgId }).eq('id', img.id)))
+    setImages(prev => prev.map(img => img.kamar_id === selectedKamarId ? { ...img, is_cover: img.id === imgId } : img))
     flash('Foto cover diperbarui.')
   }
 
@@ -777,18 +871,11 @@ function TabMedia() {
   return (
     <div>
       {(success || error) && (
-        <div style={{
-          background: success ? 'var(--green-light)' : 'var(--red-light)',
-          border: `1px solid ${success ? 'var(--green-border)' : 'var(--red-border)'}`,
-          borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-          color: success ? 'var(--green)' : 'var(--red)',
-          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
-        }}>
+        <div style={{ background: success ? 'var(--green-light)' : 'var(--red-light)', border: `1px solid ${success ? 'var(--green-border)' : 'var(--red-border)'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: success ? 'var(--green)' : 'var(--red)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
           {success || error}
         </div>
       )}
 
-      {/* Logo */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -797,39 +884,19 @@ function TabMedia() {
           <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Logo Penginapan</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{
-            width: 100, height: 80, borderRadius: 10,
-            border: '1.5px dashed var(--border)', background: 'var(--bg-secondary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden', flexShrink: 0,
-          }}>
-            {logoUrl
-              ? <img src={logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-              : <span style={{ fontSize: 24, color: 'var(--text-muted)' }}>🏠</span>
-            }
+          <div style={{ width: 100, height: 80, borderRadius: 10, border: '1.5px dashed var(--border)', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+            {logoUrl ? <img src={logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 24, color: 'var(--text-muted)' }}>🏠</span>}
           </div>
           <div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>
-              Format: PNG, JPG, SVG, WEBP. Maks 2MB.<br />
-              Rekomendasi: transparan background, min 200×80px.
-            </p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>Format: PNG, JPG, SVG, WEBP. Maks 2MB.<br />Rekomendasi: transparan background, min 200×80px.</p>
             <input ref={logoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} />
-            <button
-              className="btn-primary"
-              onClick={() => logoInputRef.current?.click()}
-              disabled={logoUploading}
-              style={{ display: 'flex', alignItems: 'center', gap: 7 }}
-            >
-              {logoUploading
-                ? <><span className="loader" style={{ width: 13, height: 13 }} /> Mengupload...</>
-                : <>{logoUrl ? '↑ Ganti Logo' : '↑ Upload Logo'}</>
-              }
+            <button className="btn-primary" onClick={() => logoInputRef.current?.click()} disabled={logoUploading} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              {logoUploading ? <><span className="loader" style={{ width: 13, height: 13 }} /> Mengupload...</> : <>{logoUrl ? '↑ Ganti Logo' : '↑ Upload Logo'}</>}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Foto Kamar */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -841,79 +908,41 @@ function TabMedia() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Kamar:</label>
             <select value={selectedKamarId} onChange={e => setSelectedKamarId(e.target.value)} style={{ width: 140 }}>
-              {kamarList.map(k => (
-                <option key={k.id} value={k.id}>{k.nomor_kamar} (Lt.{k.lantai})</option>
-              ))}
+              {kamarList.map(k => <option key={k.id} value={k.id}>{k.nomor_kamar} (Lt.{k.lantai})</option>)}
             </select>
           </div>
         </div>
 
-        <div
-          style={{
-            border: '2px dashed var(--border)', borderRadius: 10,
-            padding: '28px 20px', textAlign: 'center',
-            background: 'var(--bg-secondary)', marginBottom: 20,
-            cursor: 'pointer', transition: 'border-color 0.15s',
-          }}
+        <div style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 20px', textAlign: 'center', background: 'var(--bg-secondary)', marginBottom: 20, cursor: 'pointer', transition: 'border-color 0.15s' }}
           onClick={() => fileInputRef.current?.click()}
           onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent)' }}
           onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
-          onDrop={e => {
-            e.preventDefault()
-            e.currentTarget.style.borderColor = 'var(--border)'
-            const fakeEvt = { target: { files: e.dataTransfer.files } } as any
-            handleFotoUpload(fakeEvt)
-          }}
+          onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; handleFotoUpload({ target: { files: e.dataTransfer.files } } as any) }}
           onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
         >
           <div style={{ fontSize: 28, marginBottom: 8 }}>📸</div>
-          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-            {uploading ? 'Mengupload...' : 'Klik atau drag foto ke sini'}
-          </p>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-            Mendukung beberapa file sekaligus · JPG, PNG, WEBP · Maks 5MB per foto
-          </p>
+          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', margin: '0 0 4px' }}>{uploading ? 'Mengupload...' : 'Klik atau drag foto ke sini'}</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Mendukung beberapa file sekaligus · JPG, PNG, WEBP · Maks 5MB per foto</p>
           <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFotoUpload} />
         </div>
 
         {selectedKamarImages.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: 13 }}>
-            Belum ada foto untuk kamar ini. Upload di atas.
-          </div>
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: 13 }}>Belum ada foto untuk kamar ini. Upload di atas.</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
             {selectedKamarImages.map(img => (
               <div key={img.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden' }}>
                 <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', display: 'block' }} />
                 {img.is_cover && (
-                  <div style={{
-                    position: 'absolute', top: 6, left: 6,
-                    background: 'var(--accent)', color: '#fff',
-                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, letterSpacing: '0.06em',
-                  }}>
-                    COVER
-                  </div>
+                  <div style={{ position: 'absolute', top: 6, left: 6, background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, letterSpacing: '0.06em' }}>COVER</div>
                 )}
-                <div
-                  style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.2s', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, padding: 8 }}
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.2s', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, padding: 8 }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.45)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}
                 >
-                  {!img.is_cover && (
-                    <button
-                      onClick={() => handleSetCover(img.id)}
-                      style={{ background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#374151' }}
-                    >
-                      Cover
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDeleteImg(img)}
-                    style={{ background: 'rgba(239,68,68,0.9)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#fff', fontSize: 11 }}
-                  >
-                    Hapus
-                  </button>
+                  {!img.is_cover && <button onClick={() => handleSetCover(img.id)} style={{ background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#374151' }}>Cover</button>}
+                  <button onClick={() => handleDeleteImg(img)} style={{ background: 'rgba(239,68,68,0.9)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#fff', fontSize: 11 }}>Hapus</button>
                 </div>
               </div>
             ))}
@@ -936,19 +965,13 @@ function TabHarga() {
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState('')
   const [success,   setSuccess]   = useState('')
-  const [tenantId,  setTenantId]  = useState<string>('')   // ✅ tambah state
+  const [tenantId,  setTenantId]  = useState<string>('')
   const [editId,    setEditId]    = useState<string | null>(null)
   const [editForm,  setEditForm]  = useState<Partial<HargaRow>>({})
   const [showAdd,   setShowAdd]   = useState(false)
-  const [addForm,   setAddForm]   = useState({
-    lantai: 1, tipe: 'standard',
-    harga_harian: '', harga_mingguan: '', harga_bulanan: '',
-  })
+  const [addForm,   setAddForm]   = useState({ lantai: 1, tipe: 'standard', harga_harian: '', harga_mingguan: '', harga_bulanan: '' })
 
-  // ✅ Fetch tenant_id saat mount
-  useEffect(() => {
-    getTenantId(supabase).then(tid => { if (tid) setTenantId(tid) })
-  }, [supabase])
+  useEffect(() => { getTenantId(supabase).then(tid => { if (tid) setTenantId(tid) }) }, [supabase])
 
   const fetchHarga = useCallback(async () => {
     const { data } = await supabase.from('harga').select('*').order('lantai').order('tipe')
@@ -967,19 +990,10 @@ function TabHarga() {
     e.preventDefault()
     if (!tenantId) { flash('Session tidak valid, coba refresh halaman.', 'error'); return }
     if (!addForm.harga_bulanan) { flash('Harga bulanan wajib diisi.', 'error'); return }
-
     const exists = hargaList.some(h => h.lantai === addForm.lantai && h.tipe === addForm.tipe)
     if (exists) { flash(`Harga untuk lantai ${addForm.lantai} tipe ${addForm.tipe} sudah ada.`, 'error'); return }
-
     setSaving(true)
-    const { error: err } = await supabase.from('harga').insert({
-      lantai:         addForm.lantai,
-      tipe:           addForm.tipe,
-      harga_harian:   addForm.harga_harian   ? Number(addForm.harga_harian)   : null,
-      harga_mingguan: addForm.harga_mingguan ? Number(addForm.harga_mingguan) : null,
-      harga_bulanan:  Number(addForm.harga_bulanan),
-      tenant_id:      tenantId,   // ✅ wajib ada
-    })
+    const { error: err } = await supabase.from('harga').insert({ lantai: addForm.lantai, tipe: addForm.tipe, harga_harian: addForm.harga_harian ? Number(addForm.harga_harian) : null, harga_mingguan: addForm.harga_mingguan ? Number(addForm.harga_mingguan) : null, harga_bulanan: Number(addForm.harga_bulanan), tenant_id: tenantId })
     if (err) flash(err.message, 'error')
     else { flash('Harga berhasil disimpan.'); setShowAdd(false); fetchHarga() }
     setSaving(false)
@@ -987,11 +1001,7 @@ function TabHarga() {
 
   async function saveEdit(id: string) {
     setSaving(true)
-    const { error: err } = await supabase.from('harga').update({
-      harga_harian:   editForm.harga_harian   ? Number(editForm.harga_harian)   : null,
-      harga_mingguan: editForm.harga_mingguan ? Number(editForm.harga_mingguan) : null,
-      harga_bulanan:  Number(editForm.harga_bulanan),
-    }).eq('id', id)
+    const { error: err } = await supabase.from('harga').update({ harga_harian: editForm.harga_harian ? Number(editForm.harga_harian) : null, harga_mingguan: editForm.harga_mingguan ? Number(editForm.harga_mingguan) : null, harga_bulanan: Number(editForm.harga_bulanan) }).eq('id', id)
     if (err) flash(err.message, 'error')
     else { flash('Harga diperbarui.'); setEditId(null); fetchHarga() }
     setSaving(false)
@@ -1007,72 +1017,34 @@ function TabHarga() {
   return (
     <div>
       {(success || error) && (
-        <div style={{
-          background: success ? 'var(--green-light)' : 'var(--red-light)',
-          border: `1px solid ${success ? 'var(--green-border)' : 'var(--red-border)'}`,
-          borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-          color: success ? 'var(--green)' : 'var(--red)',
-          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
-        }}>
+        <div style={{ background: success ? 'var(--green-light)' : 'var(--red-light)', border: `1px solid ${success ? 'var(--green-border)' : 'var(--red-border)'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: success ? 'var(--green)' : 'var(--red)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
           {success ? <Check size={14} /> : <AlertCircle size={14} />}
           {success || error}
         </div>
       )}
-
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn-primary" onClick={() => setShowAdd(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Plus size={14} strokeWidth={2.5} />
-          Tambah Harga
-        </button>
+        <button className="btn-primary" onClick={() => setShowAdd(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Plus size={14} strokeWidth={2.5} /> Tambah Harga</button>
       </div>
 
       {showAdd && (
         <div className="card" style={{ marginBottom: 16, borderColor: 'var(--accent-mid)', background: 'var(--accent-light)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <DollarSign size={14} color="#fff" />
-            </div>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><DollarSign size={14} color="#fff" /></div>
             <span style={{ fontWeight: 600, fontSize: 14 }}>Tambah Harga Sewa</span>
           </div>
           <form onSubmit={handleAdd}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label className="field-label">Lantai *</label>
-                <input type="number" min={1} max={99} value={addForm.lantai}
-                  onChange={e => setAddForm({ ...addForm, lantai: Number(e.target.value) })} required />
-              </div>
-              <div>
-                <label className="field-label">Tipe Kamar *</label>
-                <select value={addForm.tipe} onChange={e => setAddForm({ ...addForm, tipe: e.target.value })}>
-                  <option value="standard">Standard</option>
-                  <option value="deluxe">Deluxe</option>
-                  <option value="suite">Suite</option>
-                  <option value="vip">VIP</option>
-                </select>
-              </div>
+              <div><label className="field-label">Lantai *</label><input type="number" min={1} max={99} value={addForm.lantai} onChange={e => setAddForm({ ...addForm, lantai: Number(e.target.value) })} required /></div>
+              <div><label className="field-label">Tipe Kamar *</label><select value={addForm.tipe} onChange={e => setAddForm({ ...addForm, tipe: e.target.value })}><option value="standard">Standard</option><option value="deluxe">Deluxe</option><option value="suite">Suite</option><option value="vip">VIP</option></select></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
-              <div>
-                <label className="field-label">Harga Harian</label>
-                <input type="number" min={0} placeholder="cth: 100000" value={addForm.harga_harian}
-                  onChange={e => setAddForm({ ...addForm, harga_harian: e.target.value })} />
-              </div>
-              <div>
-                <label className="field-label">Harga Mingguan</label>
-                <input type="number" min={0} placeholder="cth: 600000" value={addForm.harga_mingguan}
-                  onChange={e => setAddForm({ ...addForm, harga_mingguan: e.target.value })} />
-              </div>
-              <div>
-                <label className="field-label">Harga Bulanan *</label>
-                <input type="number" min={0} placeholder="cth: 1500000" required value={addForm.harga_bulanan}
-                  onChange={e => setAddForm({ ...addForm, harga_bulanan: e.target.value })} />
-              </div>
+              <div><label className="field-label">Harga Harian</label><input type="number" min={0} placeholder="cth: 100000" value={addForm.harga_harian} onChange={e => setAddForm({ ...addForm, harga_harian: e.target.value })} /></div>
+              <div><label className="field-label">Harga Mingguan</label><input type="number" min={0} placeholder="cth: 600000" value={addForm.harga_mingguan} onChange={e => setAddForm({ ...addForm, harga_mingguan: e.target.value })} /></div>
+              <div><label className="field-label">Harga Bulanan *</label><input type="number" min={0} placeholder="cth: 1500000" required value={addForm.harga_bulanan} onChange={e => setAddForm({ ...addForm, harga_bulanan: e.target.value })} /></div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>Batal</button>
-              <button type="submit" className="btn-primary" disabled={saving || !tenantId}>
-                {saving ? <><span className="loader" style={{ width: 13, height: 13 }} /> Menyimpan...</> : <><Check size={13} /> Simpan Harga</>}
-              </button>
+              <button type="submit" className="btn-primary" disabled={saving || !tenantId}>{saving ? <><span className="loader" style={{ width: 13, height: 13 }} /> Menyimpan...</> : <><Check size={13} /> Simpan Harga</>}</button>
             </div>
           </form>
         </div>
@@ -1080,10 +1052,7 @@ function TabHarga() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60, gap: 10 }}>
-            <div className="loader" />
-            <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Memuat data harga...</span>
-          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60, gap: 10 }}><div className="loader" /><span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Memuat data harga...</span></div>
         ) : hargaList.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '50px 20px' }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>💰</div>
@@ -1092,33 +1061,14 @@ function TabHarga() {
           </div>
         ) : (
           <table className="table-hotel">
-            <thead>
-              <tr>
-                <th>Lantai</th>
-                <th>Tipe</th>
-                <th>Harga Harian</th>
-                <th>Harga Mingguan</th>
-                <th>Harga Bulanan</th>
-                <th style={{ width: 90 }}>Aksi</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Lantai</th><th>Tipe</th><th>Harga Harian</th><th>Harga Mingguan</th><th>Harga Bulanan</th><th style={{ width: 90 }}>Aksi</th></tr></thead>
             <tbody>
               {hargaList.map(h => {
                 const isEditing = editId === h.id
                 return (
                   <tr key={h.id}>
                     <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>{h.lantai}</td>
-                    <td>
-                      <span style={{
-                        fontSize: 11, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize',
-                        background: h.tipe === 'vip' ? '#fef9c3' : h.tipe === 'suite' ? '#ede9fe' : h.tipe === 'deluxe' ? '#e0f2fe' : 'var(--bg-secondary)',
-                        color: h.tipe === 'vip' ? '#854d0e' : h.tipe === 'suite' ? '#6d28d9' : h.tipe === 'deluxe' ? '#0369a1' : 'var(--text-muted)',
-                        border: '1px solid',
-                        borderColor: h.tipe === 'vip' ? '#fde68a' : h.tipe === 'suite' ? '#c4b5fd' : h.tipe === 'deluxe' ? '#bae6fd' : 'var(--border)',
-                      }}>
-                        {h.tipe}
-                      </span>
-                    </td>
+                    <td><span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize', background: h.tipe === 'vip' ? '#fef9c3' : h.tipe === 'suite' ? '#ede9fe' : h.tipe === 'deluxe' ? '#e0f2fe' : 'var(--bg-secondary)', color: h.tipe === 'vip' ? '#854d0e' : h.tipe === 'suite' ? '#6d28d9' : h.tipe === 'deluxe' ? '#0369a1' : 'var(--text-muted)', border: '1px solid', borderColor: h.tipe === 'vip' ? '#fde68a' : h.tipe === 'suite' ? '#c4b5fd' : h.tipe === 'deluxe' ? '#bae6fd' : 'var(--border)' }}>{h.tipe}</span></td>
                     {isEditing ? (
                       <>
                         <td><input type="number" min={0} value={editForm.harga_harian ?? ''} onChange={e => setEditForm({ ...editForm, harga_harian: Number(e.target.value) })} style={{ padding: '5px 8px' }} /></td>
@@ -1127,47 +1077,21 @@ function TabHarga() {
                       </>
                     ) : (
                       <>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: h.harga_harian ? 'var(--text-primary)' : 'var(--text-muted)', fontStyle: h.harga_harian ? 'normal' : 'italic' }}>
-                          {h.harga_harian ? formatRupiah(h.harga_harian) : '—'}
-                        </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: h.harga_mingguan ? 'var(--text-primary)' : 'var(--text-muted)', fontStyle: h.harga_mingguan ? 'normal' : 'italic' }}>
-                          {h.harga_mingguan ? formatRupiah(h.harga_mingguan) : '—'}
-                        </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>
-                          {formatRupiah(h.harga_bulanan)}
-                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: h.harga_harian ? 'var(--text-primary)' : 'var(--text-muted)', fontStyle: h.harga_harian ? 'normal' : 'italic' }}>{h.harga_harian ? formatRupiah(h.harga_harian) : '—'}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: h.harga_mingguan ? 'var(--text-primary)' : 'var(--text-muted)', fontStyle: h.harga_mingguan ? 'normal' : 'italic' }}>{h.harga_mingguan ? formatRupiah(h.harga_mingguan) : '—'}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>{formatRupiah(h.harga_bulanan)}</td>
                       </>
                     )}
                     <td>
                       {isEditing ? (
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={() => saveEdit(h.id)} disabled={saving}
-                            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)', background: 'var(--green-light)', color: 'var(--green)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Check size={12} /> Simpan
-                          </button>
-                          <button onClick={() => setEditId(null)}
-                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                            <X size={12} />
-                          </button>
+                          <button onClick={() => saveEdit(h.id)} disabled={saving} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--green-border)', background: 'var(--green-light)', color: 'var(--green)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Simpan</button>
+                          <button onClick={() => setEditId(null)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={12} /></button>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            onClick={() => { setEditId(h.id); setEditForm({ harga_harian: h.harga_harian ?? undefined, harga_mingguan: h.harga_mingguan ?? undefined, harga_bulanan: h.harga_bulanan }) }}
-                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(h.id)}
-                            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red-border)'; e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-light)' }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          <button onClick={() => { setEditId(h.id); setEditForm({ harga_harian: h.harga_harian ?? undefined, harga_mingguan: h.harga_mingguan ?? undefined, harga_bulanan: h.harga_bulanan }) }} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}><Pencil size={12} /></button>
+                          <button onClick={() => handleDelete(h.id)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red-border)'; e.currentTarget.style.color = 'var(--red)'; e.currentTarget.style.background = 'var(--red-light)' }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}><Trash2 size={12} /></button>
                         </div>
                       )}
                     </td>
