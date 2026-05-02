@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Building2, LayoutGrid, FileText, LogOut, BookOpen, ChevronRight, Settings2 } from 'lucide-react'
 import Link from 'next/link'
+import { useEffect, useState, useRef } from 'react'
 
 const navItems = [
   { href: '/',           icon: LayoutGrid, label: 'Dashboard Kamar' },
@@ -12,15 +13,64 @@ const navItems = [
   { href: '/pengaturan', icon: Settings2,  label: 'Pengaturan' },
 ]
 
+interface TenantInfo {
+  nama: string
+  logo_url: string | null
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
   const pathname = usePathname()
+
+  const supabaseRef = useRef(createClient())
+  const supabase    = supabaseRef.current
+
+  const [tenant, setTenant] = useState<TenantInfo | null>(null)
+
+  useEffect(() => {
+    async function fetchTenant() {
+      // Ambil tenant_id dari tabel users berdasarkan user yang login
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!userRow?.tenant_id) return
+
+      // Ambil nama dari tenants dan logo dari tenant_theme secara paralel
+      const [{ data: tenantData }, { data: themeData }] = await Promise.all([
+        supabase
+          .from('tenants')
+          .select('nama')
+          .eq('id', userRow.tenant_id)
+          .single(),
+        supabase
+          .from('tenant_theme')
+          .select('logo_url')
+          .eq('tenant_id', userRow.tenant_id)
+          .single(),
+      ])
+
+      if (tenantData) {
+        setTenant({
+          nama:     tenantData.nama,
+          logo_url: themeData?.logo_url ?? null,
+        })
+      }
+    }
+
+    fetchTenant()
+  }, [supabase])
 
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
-    router.refresh() // penting: paksa middleware re-validasi sesi
+    router.refresh()
   }
 
   return (
@@ -40,30 +90,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
       }}>
 
-        {/* Logo */}
+        {/* Logo / Nama Tenant */}
         <div style={{ padding: '20px 18px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: 'var(--accent-light)',
-              border: '1px solid var(--accent-mid)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Building2 size={17} color="var(--accent)" strokeWidth={1.8} />
-            </div>
-            <div>
+
+            {/* Logo jika ada, fallback ke icon Building2 */}
+            {tenant?.logo_url ? (
+              <img
+                src={tenant.logo_url}
+                alt={tenant.nama}
+                style={{
+                  height: 34, maxWidth: 34,
+                  objectFit: 'contain', flexShrink: 0,
+                  borderRadius: 8,
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: 'var(--accent-light)',
+                border: '1px solid var(--accent-mid)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Building2 size={17} color="var(--accent)" strokeWidth={1.8} />
+              </div>
+            )}
+
+            <div style={{ minWidth: 0 }}>
+              {/* Nama tenant dinamis, fallback "Hotel" saat loading */}
               <div style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 14, fontWeight: 600,
+                fontSize: 13, fontWeight: 600,
                 color: 'var(--text-primary)',
-                lineHeight: 1.2,
+                lineHeight: 1.3,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 148,
               }}>
-                Hotel
+                {tenant?.nama ?? (
+                  <span style={{
+                    display: 'inline-block',
+                    width: 80, height: 12,
+                    background: 'var(--bg-secondary)',
+                    borderRadius: 4,
+                    verticalAlign: 'middle',
+                  }} />
+                )}
               </div>
               <div style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 9, color: 'var(--text-muted)',
                 letterSpacing: '0.15em', textTransform: 'uppercase',
+                marginTop: 2,
               }}>
                 Manajemen Kamar
               </div>

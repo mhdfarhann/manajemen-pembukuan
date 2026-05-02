@@ -428,11 +428,14 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
           @media (max-width: 768px) {
             .nav-desktop { display: none !important; }
             .nav-burger   { display: flex !important; }
+            /* PERUBAHAN: nama selalu tampil di mobile */
+            .nav-brand-name { display: inline !important; }
           }
           @media (min-width: 769px) {
             .nav-desktop  { display: flex !important; }
             .nav-burger   { display: none !important; }
             .nav-mobile   { display: none !important; }
+            .nav-brand-name { display: inline !important; }
           }
         `}</style>
 
@@ -446,23 +449,28 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
           {/* Row utama */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
 
-            {/* Logo / Nama */}
+            {/* Logo / Nama — selalu tampil di semua ukuran layar */}
             <a href="#" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-              {theme.logo_url ? (
+              {theme.logo_url && (
                 <img
                   src={theme.logo_url}
                   alt={tenant.nama}
-                  style={{ height: 40, maxWidth: 140, objectFit: 'contain' }}
+                  style={{ height: 36, maxWidth: 120, objectFit: 'contain', flexShrink: 0 }}
                 />
-              ) : (
-                <span style={{
-                  fontFamily: fHeading, fontWeight: 700,
-                  fontSize: 'clamp(14px, 4vw, 18px)',
-                  color: primary, lineHeight: 1.2,
-                }}>
-                  {tenant.nama}
-                </span>
               )}
+              {/* PERUBAHAN: nama selalu tampil, baik ada logo maupun tidak */}
+              <span
+                className="nav-brand-name"
+                style={{
+                  fontFamily: fHeading, fontWeight: 700,
+                  fontSize: 'clamp(13px, 3.5vw, 18px)',
+                  color: primary, lineHeight: 1.2,
+                  whiteSpace: 'nowrap', overflow: 'hidden',
+                  textOverflow: 'ellipsis', maxWidth: '45vw',
+                }}
+              >
+                {tenant.nama}
+              </span>
             </a>
 
             {/* Desktop links */}
@@ -487,6 +495,7 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
               style={{
                 display: 'none', flexDirection: 'column', gap: 5,
                 background: 'none', border: 'none', cursor: 'pointer', padding: 8,
+                flexShrink: 0,
               }}
               aria-label="Menu"
             >
@@ -846,13 +855,13 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
                   <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{tenant.alamat}</div>
                 </div>
               </div>
-
             </div>
           </div>
         </section>
       )}
 
       {/* ── KONTAK ── */}
+      {/* PERUBAHAN: hapus email, hapus alamat di bawah tombol WA */}
       <section id="kontak" style={{ padding: '80px 5%', background: `${theme.primary_color}08` }}>
         <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center' }}>
           <SectionHeader
@@ -877,22 +886,7 @@ export default function TemplateElegant({ tenant, theme, kamarList, hargaList, i
                 <WhatsAppIcon /> WhatsApp
               </a>
             )}
-            {tenant.email && (
-              <a href={`mailto:${tenant.email}`} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                background: '#fff', color: '#374151', border: '1px solid #e5e7eb',
-                padding: '14px 28px', borderRadius: 10,
-                textDecoration: 'none', fontWeight: 500, fontSize: 15,
-              }}>
-                {tenant.email}
-              </a>
-            )}
           </div>
-          {tenant.alamat && (
-            <p style={{ marginTop: 28, color: '#6b7280', fontSize: 14 }}>
-              📍 {tenant.alamat}
-            </p>
-          )}
         </div>
       </section>
 
